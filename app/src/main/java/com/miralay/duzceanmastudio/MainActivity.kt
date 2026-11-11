@@ -203,6 +203,8 @@ class MainActivity : Activity() {
         row.addView(media, LinearLayout.LayoutParams(0, -1, 1f).apply { marginEnd = 7 })
         row.addView(music, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = 7 })
         page.addView(row)
+        gap(page, 10)
+        page.addView(actionTile("✦", "Yapay Zekâ ile Anı Canlandır", "Seçili fotoğrafı kısa film sahnesine dönüştür · ücretsiz model", intArrayOf(0xFF7B2CBF.toInt(), 0xFF3A0CA3.toInt())) { startAiAnimation() })
         gap(page, 18)
 
         page.addView(label("PROJE ŞABLONLARI", 17f, white, true))
@@ -321,6 +323,181 @@ class MainActivity : Activity() {
         setContentView(root)
         restoreProject()
         window.decorView.systemUiVisibility = 0
+    }
+
+
+    private fun startAiAnimation() {
+        if (photos.isEmpty()) {
+            status.text = "Önce canlandırmak istediğin fotoğrafı seç."
+            return
+        }
+        val promptInput = EditText(this).apply {
+            setText("Create a realistic, respectful historical documentary reenactment of the moment in this photograph. Bring the people and the scene to life with natural human movement, subtle environmental motion and cinematic camera work. Preserve the original people, clothing, setting and historical period. Do not add text, logos, extra people or fantastical elements.")
+            minLines = 4
+            setPadding(24, 18, 24, 18)
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Fotoğraftaki anı canlandır")
+            .setMessage("İlk seçtiğin fotoğraf, ücretsiz Wan 2.2 modeline gönderilecek. Tek sahne en fazla 4,5 saniyedir. Fotoğraf herkese açık bir model sunucusunda işlenir; özel fotoğraf yükleme.")
+            .setView(promptInput)
+            .setNegativeButton("Vazgeç", null)
+            .setPositiveButton("Canlandırmayı başlat") { _, _ ->
+                val source = photos.first()
+                val prompt = promptInput.text.toString().trim()
+                if (prompt.isBlank()) {
+                    status.text = "Canlandırma tarifi boş olamaz."
+                    return@setPositiveButton
+                }
+                progressBar.isIndeterminate = true
+                status.text = "Ücretsiz Wan 2.2 sunucusuna bağlanılıyor…"
+                Thread {
+                    val result = runCatching { generateAiScene(source, prompt) }
+                    runOnUiThread {
+                        progressBar.isIndeterminate = false
+                        result.onSuccess {
+                            status.text = "Yapay zekâ sahnesi oluşturuldu ve Galeriye kaydedildi: Movies/Kanatix AI"
+                            android.app.AlertDialog.Builder(this)
+                                .setTitle("Canlandırma tamamlandı")
+                                .setMessage("Sahne MP4 olarak Galeriye kaydedildi. Ücretsiz sunucuda bekleme süresi değişebilir.")
+                                .setPositiveButton("Tamam", null).show()
+                        }.onFailure {
+                            status.text = "Canlandırma başarısız: ${it.message}"
+                        }
+                    }
+                }.start()
+            }
+            .show()
+    }
+
+    private fun generateAiScene(source: Uri, prompt: String): Uri {
+        val base = "https://cbensimon-wan2-2-fp8da-aoti-preview2.hf.space"
+        val imagePath = uploadImageToWan(source, base)
+        val inputImage = JSONObject().apply {
+            put("path", imagePath)
+            put("url", "$base/gradio_api/file=$imagePath")
+            put("orig_name", "kanatix-source.jpg")
+            put("size", JSONObject.NULL)
+            put("mime_type", "image/jpeg")
+            put("meta", JSONObject().put("_type", "gradio.FileData"))
+        }
+        val data = JSONArray().apply {
+            put(inputImage)
+            put(JSONObject.NULL)
+            put(prompt)
+            put(6)
+            put("colorful, overexposed, static, blurry, subtitles, text, watermark, deformed anatomy, extra fingers, distorted faces, duplicate people, modern objects, fantasy elements")
+            put(4.0)
+            put(1)
+            put(1)
+            put(42)
+            put(true)
+            put(6)
+            put("UniPCMultistep")
+            put(3.0)
+            put(16)
+            put(false)
+            put(true)
+        }
+        val submit = URL("$base/gradio_api/call/generate_video").openConnection() as HttpURLConnection
+        submit.requestMethod = "POST"
+        submit.connectTimeout = 30000
+        submit.readTimeout = 30000
+        submit.doOutput = true
+        submit.setRequestProperty("Content-Type", "application/json")
+        submit.outputStream.use { it.write(JSONObject().put("data", data).toString().toByteArray(Charsets.UTF_8)) }
+        val submitCode = submit.responseCode
+        val submitText = (if (submitCode in 200..299) submit.inputStream else submit.errorStream)
+            .bufferedReader().use { it.readText() }
+        if (submitCode !in 200..299) error("Model işi kabul etmedi ($submitCode): $submitText")
+        val eventId = JSONObject(submitText).optString("event_id")
+        if (eventId.isBlank()) error("Model sunucusu iş numarası döndürmedi.")
+        submit.disconnect()
+
+        runOnUiThread { status.text = "Wan 2.2 sahneyi oluşturuyor. Ücretsiz sunucuda sıra beklenebilir…" }
+        val stream = URL("$base/gradio_api/call/generate_video/$eventId").openConnection() as HttpURLConnection
+        stream.requestMethod = "GET"
+        stream.connectTimeout = 30000
+        stream.readTimeout = 240000
+        stream.setRequestProperty("Accept", "text/event-stream")
+        if (stream.responseCode !in 200..299) error("Sonuç akışı açılamadı (${stream.responseCode}).")
+        var eventName = "message"
+        val dataLines = mutableListOf<String>()
+        var videoUrl: String? = null
+        stream.inputStream.bufferedReader().useLines { lines ->
+            lines.forEach { line ->
+                if (line.startsWith("event:")) eventName = line.substringAfter("event:").trim()
+                else if (line.startsWith("data:")) dataLines.add(line.substringAfter("data:").trim())
+                else if (line.isBlank() && dataLines.isNotEmpty()) {
+                    val raw = dataLines.joinToString("\n")
+                    if (eventName == "complete") {
+                        val payload = JSONArray(raw)
+                        val first = payload.optJSONObject(0)
+                        videoUrl = first?.optString("url")?.takeIf { !it.isNullOrBlank() && it != "null" }
+                            ?: first?.optString("path")?.takeIf { !it.isNullOrBlank() && it != "null" }?.let { "$base/gradio_api/file=$it" }
+                            ?: payload.optString(0).takeIf { it.startsWith("http") }
+                        if (videoUrl != null) return@forEach
+                    } else if (eventName == "error") {
+                        error("Wan 2.2 hata bildirdi: $raw")
+                    }
+                    eventName = "message"
+                    dataLines.clear()
+                }
+            }
+        }
+        stream.disconnect()
+        val resultUrl = videoUrl ?: error("Model bağlantısı kapandı; video adresi alınamadı. Ücretsiz sunucuyu tekrar deneyebilirsin.")
+        runOnUiThread { status.text = "Sahne indiriliyor…" }
+        val connection = URL(resultUrl).openConnection()
+        connection.connectTimeout = 30000
+        connection.readTimeout = 120000
+        val temp = File(cacheDir, "kanatix-ai-${System.currentTimeMillis()}.mp4")
+        connection.getInputStream().use { input -> temp.outputStream().use { input.copyTo(it) } }
+        if (temp.length() < 1024) {
+            temp.delete()
+            error("Model geçerli bir MP4 dosyası döndürmedi.")
+        }
+        saveAiVideoToGallery(temp)
+        return Uri.fromFile(temp)
+    }
+
+    private fun uploadImageToWan(uri: Uri, base: String): String {
+        val boundary = "----KanatixWan${System.currentTimeMillis()}"
+        val connection = URL("$base/gradio_api/upload").openConnection() as HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.connectTimeout = 30000
+        connection.readTimeout = 90000
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+        connection.outputStream.use { output ->
+            output.write("--$boundary\r\nContent-Disposition: form-data; name=\"files\"; filename=\"kanatix-source.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray())
+            val input = if (uri.scheme == "file") FileInputStream(File(uri.path!!)) else contentResolver.openInputStream(uri)
+                ?: error("Seçilen fotoğraf okunamadı.")
+            input.use { it.copyTo(output) }
+            output.write("\r\n--$boundary--\r\n".toByteArray())
+        }
+        val code = connection.responseCode
+        val response = (if (code in 200..299) connection.inputStream else connection.errorStream)
+            .bufferedReader().use { it.readText() }
+        if (code !in 200..299) error("Fotoğraf yüklenemedi ($code): $response")
+        connection.disconnect()
+        val paths = JSONArray(response)
+        return paths.optString(0).takeIf { it.isNotBlank() } ?: error("Model fotoğraf yüklemesini kabul etmedi.")
+    }
+
+    private fun saveAiVideoToGallery(file: File) {
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "Kanatix-AI-Canlandirma-${System.currentTimeMillis()}.mp4")
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Kanatix AI")
+            put(MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            ?: error("Galeriye kayıt alanı oluşturulamadı.")
+        contentResolver.openOutputStream(uri)?.use { out -> FileInputStream(file).use { it.copyTo(out) } }
+            ?: error("Canlandırma videosu Galeriye yazılamadı.")
+        values.clear()
+        values.put(MediaStore.Video.Media.IS_PENDING, 0)
+        contentResolver.update(uri, values, null, null)
     }
 
     private fun pickPhotos() {
