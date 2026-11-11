@@ -330,46 +330,20 @@ class MainActivity : Activity() {
 
 
     private fun startAiAnimation() {
-        if (photos.isEmpty()) {
-            status.text = "Önce canlandırmak istediğin fotoğrafı seç."
+        if (photos.size != 5) {
+            status.text = "Çoklu sahne stüdyosu için tam 5 fotoğraf seçmelisin. Şu an: ${photos.size}"
             return
         }
-        val promptInput = EditText(this).apply {
-            setText("create a realistic, respectful historical documentary reenactment of the moment in this photograph. Bring the people and the scene to life with natural human movement, subtle environmental motion and cinematic camera work. Preserve the original people, clothing, setting and historical period. Do not add text, logos, extra people or fantastical elements.")
-            minLines = 4
-            setPadding(24, 18, 24, 18)
-        }
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Fotoğraftaki anı canlandır")
-            .setMessage("İlk seçtiğin fotoğraf, ücretsiz Wan 2.2 modeline gönderilecek. Tek sahne en fazla 4,5 saniyedir. Fotoğraf herkese açık bir model sunucusunda işlenir; özel fotoğraf yükleme.")
-            .setView(promptInput)
+        val confirm = android.app.AlertDialog.Builder(this)
+            .setTitle("15 sahneli film üretimi")
+            .setMessage("5 fotoğrafın her biri için 3 devamlı, yaklaşık 4 saniyelik Wan 2.2 klibi üretilecek. Toplam 15 klip. Ücretsiz sunucu sırası nedeniyle işlem uzun sürebilir. Fotoğraflar herkese açık model sunucusuna gönderilir.")
             .setNegativeButton("Vazgeç", null)
-            .setPositiveButton("Canlandırmayı başlat") { _, _ ->
-                val source = photos.first()
-                val prompt = promptInput.text.toString().trim()
-                if (prompt.isBlank()) {
-                    status.text = "Canlandırma tarifi boş olamaz."
-                    return@setPositiveButton
-                }
-                progressBar.isIndeterminate = true
-                status.text = "Ücretsiz Wan 2.2 sunucusuna bağlanılıyor…"
-                Thread {
-                    val result = runCatching { generateAiScene(source, prompt) }
-                    runOnUiThread {
-                        progressBar.isIndeterminate = false
-                        result.onSuccess {
-                            status.text = "Yapay zekâ sahnesi oluşturuldu ve Galeriye kaydedildi: Movies/Kanatix AI"
-                            android.app.AlertDialog.Builder(this)
-                                .setTitle("Canlandırma tamamlandı")
-                                .setMessage("Sahne MP4 olarak Galeriye kaydedildi. Ücretsiz sunucuda bekleme süresi değişebilir.")
-                                .setPositiveButton("Tamam", null).show()
-                        }.onFailure {
-                            status.text = "Canlandırma başarısız: ${it.message}"
-                        }
-                    }
-                }.start()
+            .setPositiveButton("Devam et") { _, _ ->
+                val intent = Intent(this, SceneStudioActivity::class.java)
+                intent.putStringArrayListExtra("photos", ArrayList(photos.map { it.toString() }))
+                startActivity(intent)
             }
-            .show()
+        confirm.show()
     }
 
     private fun generateAiScene(source: Uri, prompt: String): Uri {
