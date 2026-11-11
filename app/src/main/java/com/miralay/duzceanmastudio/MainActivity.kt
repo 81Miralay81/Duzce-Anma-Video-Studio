@@ -248,7 +248,7 @@ class MainActivity : Activity() {
     }
     private fun exportProject() {
         try {
-            val pack = File(cacheDir, "kanatix-project-\${System.currentTimeMillis()}.zip")
+            val pack = File(cacheDir, "kanatix-project-${System.currentTimeMillis()}.zip")
             val manifest = JSONObject().apply {
                 put("format", "kanatix-video-project"); put("version", 1)
                 put("title", titleInput.text.toString()); put("closing", closingInput.text.toString())
@@ -271,7 +271,7 @@ class MainActivity : Activity() {
                     return "media/$path"
                 }
                 photos.forEachIndexed { index, uri ->
-                    manifest.getJSONArray("photos").put(addMedia(uri, "photo_\${(index + 1).toString().padStart(3, '0')}"))
+                    manifest.getJSONArray("photos").put(addMedia(uri, "photo_${(index + 1).toString().padStart(3, '0')}"))
                 }
                 musicUri?.let { manifest.put("music", addMedia(it, "background_music")) }
                 voiceUri?.let { manifest.put("voice", addMedia(it, "voiceover")) }
@@ -285,7 +285,7 @@ class MainActivity : Activity() {
             }
             startActivityForResult(intent, 415)
             status.text = "Proje paketi hazır. Kaydedilecek konumu seç."
-        } catch (e: Exception) { status.text = "Paket oluşturulamadı: \${e.message}" }
+        } catch (e: Exception) { status.text = "Paket oluşturulamadı: ${e.message}" }
     }    private fun importProject() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE); type = "application/zip"
@@ -324,12 +324,12 @@ class MainActivity : Activity() {
         }
         musicUri = mediaUri("music"); voiceUri = mediaUri("voice")
         updateMediaInfo(); saveLocal()
-        status.text = "Proje paketi açıldı. \${photos.size} görsel ve ses dosyaları yerleştirildi."
+        status.text = "Proje paketi açıldı. ${photos.size} görsel ve ses dosyaları yerleştirildi."
     }
 
     private fun extractProjectPackage(source: Uri) {
         val base = File(filesDir, "kanatix_projects").apply { mkdirs() }
-        val destination = File(base, "project_\${System.currentTimeMillis()}").apply { mkdirs() }
+        val destination = File(base, "project_${System.currentTimeMillis()}").apply { mkdirs() }
         val tempZip = File(cacheDir, "kanatix-import.zip")
         contentResolver.openInputStream(source)?.use { input -> tempZip.outputStream().use { input.copyTo(it) } }
             ?: error("Seçilen ZIP dosyası okunamadı")
@@ -450,7 +450,7 @@ class MainActivity : Activity() {
             val duration = eachPhotoMs + if (index == photos.lastIndex) photoRemainderMs else 0L
             items.add(imageItem(uri, duration))
         }
-        val endCard = makeTitleCard("12 KASIM 1999\nDÜZCE DEPREMİ\n${closingInput.text}", "duzce-end.png")
+        val endCard = makeTitleCard(closingInput.text.toString(), "kanatix-end.png")
         items.add(imageItem(endCard, cardMs))
         // Media3 1.6.1 API: use the list constructors for sequences.
         val sequences = mutableListOf(EditedMediaItemSequence(items))
