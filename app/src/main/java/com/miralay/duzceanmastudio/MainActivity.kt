@@ -2,6 +2,8 @@ package com.miralay.duzceanmastudio
 
 import android.app.Activity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.content.Intent
 import android.content.ContentValues
 import android.net.Uri
@@ -23,6 +25,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,6 +40,11 @@ class MainActivity : Activity() {
     private lateinit var titleInput: EditText
     private lateinit var closingInput: EditText
     private lateinit var status: TextView
+    private lateinit var progressBar: ProgressBar
+    private var transformer: Transformer? = null
+    private var outputFile: File? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var progressTask: Runnable? = null
     private var pendingJson: String? = null
     private var exporting = false
     private val prefs by lazy { getSharedPreferences("project", MODE_PRIVATE) }
@@ -72,6 +80,9 @@ class MainActivity : Activity() {
         root.addView(action("ARKA PLAN MÜZİĞİ / SES KAYDI SEÇ", ::pickMusic))
         musicInfo = label("İsteğe bağlı müzik seçilmedi"); root.addView(musicInfo)
         root.addView(action("45 SANİYELİK MP4 OLUŞTUR", ::createVideo))
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100; progress = 0 }
+        root.addView(progressBar, ViewGroup.LayoutParams(-1, -2))
+        root.addView(action("VİDEO OLUŞTURMAYI İPTAL ET", ::cancelVideo))
         root.addView(action("PROJEYİ DIŞA AKTAR (JSON)") { exportProject() })
         root.addView(action("PROJEYİ İÇE AKTAR (JSON)") { importProject() })
         root.addView(label("Dikey 9:16 • 1080 × 1920 hedef • 45 saniye"))
@@ -214,10 +225,13 @@ class MainActivity : Activity() {
             Composition.Builder(videoSequence, audioSequence).build()
         } else Composition.Builder(videoSequence).build()
         val output = File(cacheDir, "duzce-anma-${System.currentTimeMillis()}.mp4")
+        outputFile = output
         val listener = object : Transformer.Listener {
             override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                 runOnUiThread {
                     exporting = false
+                    progressTask?.let { mainHandler.removeCallbacks(it) }
+                    progressBar.progress = 100
                     runCatching { saveVideoToGallery(output) }
                         .onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Düzce Anma.mp4" }
                         .onFailure { status.text = "Video oluştu ancak galeriye kaydedilemedi: ${it.message}" }
@@ -225,15 +239,48 @@ class MainActivity : Activity() {
                 }
             }
             override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                runOnUiThread { exporting = false; status.text = "Video oluşturma hatası: ${exportException.message}" }
+                runOnUiThread {
+                    exporting = false
+                    progressTask?.let { mainHandler.removeCallbacks(it) }
+                    status.text = "Video oluşturma hatası: ${exportException.message}"
+                }
                 output.delete()
             }
         }
         try {
-            Transformer.Builder(this).addListener(listener).build().start(composition, output.absolutePath)
+            transformer = Transformer.Builder(this).addListener(listener).build()
+            transformer!!.start(composition, output.absolutePath)
+            val task = object : Runnable {
+                override fun run() {
+                    val current = transformer ?: return
+                    val holder = ProgressHolder()
+                    val state = current.getProgress(holder)
+                    if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
+                        progressBar.progress = holder.progress
+                        status.text = "Video hazırlanıyor: ${holder.progress}%"
+                    }
+                    if (exporting && state != Transformer.PROGRESS_STATE_NOT_STARTED) {
+                        mainHandler.postDelayed(this, 500)
+                    }
+                }
+            }
+            progressTask = task
+            mainHandler.post(task)
         } catch (e: Exception) {
             exporting = false; status.text = "Başlatılamadı: ${e.message}"; output.delete()
         }
+    }
+
+    private fun cancelVideo() {
+        if (!exporting) {
+            status.text = "Devam eden video oluşturma işlemi yok."
+            return
+        }
+        runCatching { transformer?.cancel() }
+        exporting = false
+        progressTask?.let { mainHandler.removeCallbacks(it) }
+        outputFile?.delete()
+        status.text = "Video oluşturma iptal edildi."
     }
 
     private fun saveVideoToGallery(file: File) {
