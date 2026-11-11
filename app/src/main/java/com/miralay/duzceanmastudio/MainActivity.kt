@@ -334,7 +334,7 @@ class MainActivity : Activity() {
             return
         }
         val promptInput = EditText(this).apply {
-            setText("Create a realistic, respectful historical documentary reenactment of the moment in this photograph. Bring the people and the scene to life with natural human movement, subtle environmental motion and cinematic camera work. Preserve the original people, clothing, setting and historical period. Do not add text, logos, extra people or fantastical elements.")
+            setText("create a realistic, respectful historical documentary reenactment of the moment in this photograph. Bring the people and the scene to life with natural human movement, subtle environmental motion and cinematic camera work. Preserve the original people, clothing, setting and historical period. Do not add text, logos, extra people or fantastical elements.")
             minLines = 4
             setPadding(24, 18, 24, 18)
         }
