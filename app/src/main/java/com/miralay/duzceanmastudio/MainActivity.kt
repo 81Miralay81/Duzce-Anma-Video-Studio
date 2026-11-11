@@ -108,7 +108,6 @@ class MainActivity : Activity() {
             val bars = if (android.os.Build.VERSION.SDK_INT >= 30) {
                 insets.getInsets(WindowInsets.Type.systemBars())
             } else {
-                @Suppress("DEPRECATION")
                 android.graphics.Insets.of(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
                     insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
             }
