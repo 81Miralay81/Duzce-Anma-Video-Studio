@@ -16,7 +16,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.Effects
+import androidx.media3.transformer.Effects
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
