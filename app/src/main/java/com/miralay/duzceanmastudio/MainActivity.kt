@@ -51,6 +51,7 @@ class MainActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var progressTask: Runnable? = null
     private var pendingJson: String? = null
+    private var pendingPackageFile: File? = null
     private var exporting = false
     private var cancelRequested = false
     private val prefs by lazy { getSharedPreferences("project", MODE_PRIVATE) }
@@ -246,27 +247,52 @@ class MainActivity : Activity() {
         startActivityForResult(intent, 414)
     }
     private fun exportProject() {
-        pendingJson = JSONObject().apply {
-            put("format", "miralay-duzce-project"); put("version", 2)
-            put("title", titleInput.text.toString()); put("closing", closingInput.text.toString())
-            put("aspectRatio", "9:16"); put("width", 1080); put("height", 1920); put("durationSeconds", 45)
-            put("photos", JSONArray().also { a -> photos.forEach { a.put(it.toString()) } })
-            put("music", musicUri?.toString() ?: JSONObject.NULL)
-            put("voice", voiceUri?.toString() ?: JSONObject.NULL)
-        }.toString(2)
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
-            putExtra(Intent.EXTRA_TITLE, "Duzce-Anma-Projesi.json")
-        }
-        startActivityForResult(intent, 411)
-    }
-    private fun importProject() {
+        try {
+            val pack = File(cacheDir, "kanatix-project-\${System.currentTimeMillis()}.zip")
+            val manifest = JSONObject().apply {
+                put("format", "kanatix-video-project"); put("version", 1)
+                put("title", titleInput.text.toString()); put("closing", closingInput.text.toString())
+                put("aspectRatio", "9:16"); put("width", 1080); put("height", 1920); put("fps", 30)
+                put("photos", JSONArray())
+            }
+            java.util.zip.ZipOutputStream(pack.outputStream().buffered()).use { zip ->
+                fun addMedia(uri: Uri, entryName: String): String {
+                    val mime = contentResolver.getType(uri) ?: ""
+                    val ext = when {
+                        mime.contains("png") -> "png"; mime.contains("webp") -> "webp"
+                        mime.contains("mp4") -> "mp4"; mime.contains("wav") -> "wav"
+                        mime.contains("mpeg") || mime.contains("mp3") -> "mp3"
+                        mime.contains("ogg") -> "ogg"; else -> "jpg"
+                    }
+                    val path = "$entryName.$ext"
+                    zip.putNextEntry(java.util.zip.ZipEntry("media/$path"))
+                    contentResolver.openInputStream(uri)?.use { it.copyTo(zip) } ?: error("Medya dosyası okunamadı")
+                    zip.closeEntry()
+                    return "media/$path"
+                }
+                photos.forEachIndexed { index, uri ->
+                    manifest.getJSONArray("photos").put(addMedia(uri, "photo_\${(index + 1).toString().padStart(3, '0')}"))
+                }
+                musicUri?.let { manifest.put("music", addMedia(it, "background_music")) }
+                voiceUri?.let { manifest.put("voice", addMedia(it, "voiceover")) }
+                zip.putNextEntry(java.util.zip.ZipEntry("project.json"))
+                zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8)); zip.closeEntry()
+            }
+            pendingPackageFile = pack
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE); type = "application/zip"
+                putExtra(Intent.EXTRA_TITLE, "Kanatix-Proje-Paketi.zip")
+            }
+            startActivityForResult(intent, 415)
+            status.text = "Proje paketi hazır. Kaydedilecek konumu seç."
+        } catch (e: Exception) { status.text = "Paket oluşturulamadı: \${e.message}" }
+    }    private fun importProject() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
+            addCategory(Intent.CATEGORY_OPENABLE); type = "application/zip"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
         }
-        startActivityForResult(intent, 412)
-    }
-    private fun applyProject(raw: String) {
+        startActivityForResult(intent, 416)
+    }    private fun applyProject(raw: String) {
         val obj = JSONObject(raw)
         require(obj.optString("format") == "miralay-duzce-project") { "Bu dosya Düzce Anma projesi değil." }
         titleInput.setText(obj.optString("title")); closingInput.setText(obj.optString("closing"))
@@ -277,6 +303,67 @@ class MainActivity : Activity() {
         voiceUri = obj.optString("voice").takeIf { it.isNotBlank() && it != "null" }?.let { Uri.parse(it) }
         updateMediaInfo(); saveLocal()
         status.text = "Proje içe aktarıldı. Medya erişimi bu cihazdaki izinlere bağlıdır."
+    }
+    private fun applyPackageProject(raw: String, projectDir: File) {
+        val obj = JSONObject(raw)
+        require(obj.optString("format") == "kanatix-video-project") { "Bu dosya Kanatix video proje paketi değil." }
+        titleInput.setText(obj.optString("title")); closingInput.setText(obj.optString("closing"))
+        photos.clear()
+        val a = obj.optJSONArray("photos") ?: JSONArray()
+        for (i in 0 until a.length()) {
+            val relative = a.getString(i)
+            val file = File(projectDir, relative).canonicalFile
+            require(file.path.startsWith(projectDir.canonicalPath + File.separator) && file.isFile) { "Paket içinde medya bulunamadı: $relative" }
+            photos.add(Uri.fromFile(file))
+        }
+        fun mediaUri(key: String): Uri? {
+            val relative = obj.optString(key).takeIf { it.isNotBlank() && it != "null" } ?: return null
+            val file = File(projectDir, relative).canonicalFile
+            require(file.path.startsWith(projectDir.canonicalPath + File.separator) && file.isFile) { "Paket içinde ses dosyası bulunamadı: $relative" }
+            return Uri.fromFile(file)
+        }
+        musicUri = mediaUri("music"); voiceUri = mediaUri("voice")
+        updateMediaInfo(); saveLocal()
+        status.text = "Proje paketi açıldı. \${photos.size} görsel ve ses dosyaları yerleştirildi."
+    }
+
+    private fun extractProjectPackage(source: Uri) {
+        val base = File(filesDir, "kanatix_projects").apply { mkdirs() }
+        val destination = File(base, "project_\${System.currentTimeMillis()}").apply { mkdirs() }
+        val tempZip = File(cacheDir, "kanatix-import.zip")
+        contentResolver.openInputStream(source)?.use { input -> tempZip.outputStream().use { input.copyTo(it) } }
+            ?: error("Seçilen ZIP dosyası okunamadı")
+        var totalBytes = 0L
+        var entryCount = 0
+        java.util.zip.ZipInputStream(tempZip.inputStream().buffered()).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                entryCount++
+                require(entryCount <= 150) { "Paket çok fazla dosya içeriyor." }
+                val name = entry.name.replace('\\', '/')
+                require(!name.startsWith("/") && !name.split('/').any { it == ".." } && !name.contains(":")) { "Güvenli olmayan dosya yolu." }
+                val out = File(destination, name).canonicalFile
+                require(out.path.startsWith(destination.canonicalPath + File.separator) || out == destination) { "Paket dosya yolu güvenli değil." }
+                if (entry.isDirectory) out.mkdirs() else {
+                    out.parentFile?.mkdirs()
+                    out.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = zip.read(buffer)
+                            if (count < 0) break
+                            totalBytes += count
+                            require(totalBytes <= 1024L * 1024L * 1024L) { "Paket boyutu 1 GB sınırını aşıyor." }
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                zip.closeEntry()
+            }
+        }
+        val manifest = File(destination, "project.json")
+        require(manifest.isFile) { "ZIP içinde project.json bulunamadı." }
+        applyPackageProject(manifest.readText(Charsets.UTF_8), destination)
+        tempZip.delete()
     }
     private fun saveLocal() {
         prefs.edit().putString("title", titleInput.text.toString())
@@ -357,7 +444,7 @@ class MainActivity : Activity() {
         val eachPhotoMs = photoMs / photos.size
         val photoRemainderMs = photoMs % photos.size
         val items = mutableListOf<EditedMediaItem>()
-        val startCard = makeTitleCard(titleInput.text.toString(), "duzce-start.png")
+        val startCard = makeTitleCard(titleInput.text.toString(), "kanatix-start.png")
         items.add(imageItem(startCard, cardMs))
         photos.forEachIndexed { index, uri ->
             val duration = eachPhotoMs + if (index == photos.lastIndex) photoRemainderMs else 0L
@@ -379,7 +466,7 @@ class MainActivity : Activity() {
             sequences.add(EditedMediaItemSequence(listOf(voiceItem), false))
         }
         val composition = Composition.Builder(sequences).build()
-        val output = File(cacheDir, "duzce-anma-${System.currentTimeMillis()}.mp4")
+        val output = File(cacheDir, "kanatix-video-${System.currentTimeMillis()}.mp4")
         outputFile = output
         val listener = object : Transformer.Listener {
             override fun onCompleted(composition: Composition, exportResult: ExportResult) {
@@ -394,7 +481,7 @@ class MainActivity : Activity() {
                     val result = runCatching { saveVideoToGallery(output) }
                     output.delete()
                     runOnUiThread {
-                        result.onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Movies/Duzce Anma" }
+                        result.onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Movies/Kanatix Video" }
                             .onFailure { status.text = "Video oluştu ancak galeriye kaydedilemedi: ${it.message}" }
                     }
                 }.start()
@@ -450,9 +537,9 @@ class MainActivity : Activity() {
 
     private fun saveVideoToGallery(file: File) {
         val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, "Duzce-Anma-${System.currentTimeMillis()}.mp4")
+            put(MediaStore.Video.Media.DISPLAY_NAME, "Kanatix-Video-${System.currentTimeMillis()}.mp4")
             put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Duzce Anma")
+            put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Kanatix Video")
             put(MediaStore.Video.Media.IS_PENDING, 1)
         }
         val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -500,6 +587,19 @@ class MainActivity : Activity() {
             412 -> {
                 val raw = contentResolver.openInputStream(data.data!!)?.bufferedReader()?.use { it.readText() } ?: return
                 runCatching { applyProject(raw) }.onFailure { status.text = "İçe aktarma hatası: ${it.message}" }
+            }
+            415 -> {
+                val file = pendingPackageFile ?: return
+                runCatching {
+                    contentResolver.openOutputStream(data.data!!)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        ?: error("Dosya hedefi açılamadı")
+                    file.delete()
+                    status.text = "Kanatix proje paketi dışa aktarıldı."
+                }.onFailure { status.text = "Paket kaydedilemedi: ${it.message}" }
+            }
+            416 -> {
+                runCatching { extractProjectPackage(data.data!!) }
+                    .onFailure { status.text = "Paket içe aktarılamadı: ${it.message}" }
             }
         }
     }
