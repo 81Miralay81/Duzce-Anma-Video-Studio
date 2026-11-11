@@ -3,11 +3,13 @@
 12 Kasım 1999 Düzce Depremi için Android telefonda ücretsiz ve yerel çalışan anma videosu hazırlama uygulaması.
 
 ## Uygulama özellikleri
+- Sürüm: 0.4.0 (versionCode 4)
 - Birden fazla fotoğraf seçme; seçilen sırada videoya ekleme
 - Başlangıç ve kapanış kartları ile başlık/kapanış metnini düzenleme
 - İsteğe bağlı arka plan müziği ve ayrı seslendirme/konuşma kaydı seçme; ses parçaları videoyla birlikte mikslenir
 - 45 saniyelik, dikey 9:16 (1080 × 1920 hedefli), 30 FPS MP4 slayt gösterisi
-- Fotoğrafları zaman çizelgesine eşit dağıtma; toplam süreyi 45 saniyeye sabitleme
+- En fazla 37 fotoğrafı zaman çizelgesine eşit dağıtma; toplam süreyi 45 saniyeye sabitleme
+- Seslendirme kaydını 45 saniyeyle sınırlama; arka plan müziğini video sonuna kadar döngüye alma
 - Dışa aktarma sırasında yüzde ilerleme çubuğu ve iptal düğmesi
 - Videoyu Galeri'de Movies/Duzce Anma klasörüne kaydetme
 - Projeyi JSON olarak içe/dışa aktarma ve cihazda yerel ayarları saklama
