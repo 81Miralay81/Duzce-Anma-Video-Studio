@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -458,6 +459,7 @@ class MainActivity : Activity() {
             temp.delete()
             error("Model geçerli bir MP4 dosyası döndürmedi.")
         }
+        validateGeneratedVideo(temp)
         saveAiVideoToGallery(temp)
         return Uri.fromFile(temp)
     }
@@ -486,6 +488,34 @@ class MainActivity : Activity() {
         return paths.optString(0).takeIf { it.isNotBlank() } ?: error("Model fotoğraf yüklemesini kabul etmedi.")
     }
 
+    private fun validateGeneratedVideo(file: File) {
+        val header = ByteArray(16)
+        FileInputStream(file).use { input ->
+            if (input.read(header) < 12) error("Model çıktısı eksik; video kaydedilmedi.")
+        }
+        val signature = String(header, 4, 4, Charsets.US_ASCII)
+        if (signature != "ftyp") error("Model MP4 video yerine başka bir dosya döndürdü. Galeriye kaydedilmedi.")
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(file.absolutePath)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                ?: error("Video süresi okunamadı; dosya kaydedilmedi.")
+            if (durationMs !in 2500L..10000L) error("Model beklenen 2,5–10 saniyelik sahneyi üretmedi (${durationMs / 1000.0} sn). Kaydedilmedi.")
+            val first = retriever.getFrameAtTime(500000L, MediaMetadataRetriever.OPTION_CLOSEST) ?: error("İlk video karesi okunamadı.")
+            val later = retriever.getFrameAtTime((durationMs / 2) * 1000L, MediaMetadataRetriever.OPTION_CLOSEST) ?: error("Sonraki video karesi okunamadı.")
+            val a = Bitmap.createScaledBitmap(first, 32, 32, true)
+            val b = Bitmap.createScaledBitmap(later, 32, 32, true)
+            var changed = 0
+            for (y in 0 until 32) for (x in 0 until 32) {
+                val p = a.getPixel(x, y)
+                val q = b.getPixel(x, y)
+                val diff = kotlin.math.abs(android.graphics.Color.red(p) - android.graphics.Color.red(q)) + kotlin.math.abs(android.graphics.Color.green(p) - android.graphics.Color.green(q)) + kotlin.math.abs(android.graphics.Color.blue(p) - android.graphics.Color.blue(q))
+                if (diff > 36) changed++
+            }
+            a.recycle(); b.recycle(); first.recycle(); later.recycle()
+            if (changed < 3) error("Çıktı sabit fotoğraf gibi görünüyor; hareket doğrulanamadı. Galeriye kaydedilmedi.")
+        } finally { retriever.release() }
+    }
     private fun saveAiVideoToGallery(file: File) {
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, "Kanatix-AI-Canlandirma-${System.currentTimeMillis()}.mp4")
