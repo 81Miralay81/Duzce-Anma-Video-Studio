@@ -27,6 +27,7 @@ class SceneStudioActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var start: Button
     private val clips = mutableListOf<File>()
+    private lateinit var outputDir: File
     @Volatile private var cancelled = false
     private val basePrompt = "create a realistic, respectful historical documentary reenactment of the moment in this photograph. Bring the people and the scene to life with natural human movement, subtle environmental motion and cinematic camera work. Preserve the original people, clothing, setting and historical period. Do not add text, logos, extra people or fantastical elements."
 
@@ -75,6 +76,7 @@ class SceneStudioActivity : Activity() {
         Thread {
             val result = runCatching {
                 val dir = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "Kanatix-Scene-Project-${System.currentTimeMillis()}").apply { mkdirs() }
+                outputDir = dir
                 for (photoIndex in 0 until 5) {
                     var continuityImage = copyUriToFile(Uri.parse(photos[photoIndex]), File(cacheDir, "scene-source-$photoIndex.jpg"))
                     for (part in 0 until 3) {
@@ -179,7 +181,7 @@ class SceneStudioActivity : Activity() {
         stream.disconnect()
         if (cancelled) error("İptal edildi.")
         val url = resultUrl ?: error("Model video dosyası adresi döndürmedi.")
-        val file = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "Kanatix-scene-${(index + 1).toString().padStart(2,'0')}.mp4")
+        val file = File(outputDir, "Kanatix-scene-${(index + 1).toString().padStart(2,'0')}.mp4")
         URL(url).openStream().use { input -> file.outputStream().use { input.copyTo(it) } }
         validateMotionMp4(file)
         return file
