@@ -256,17 +256,18 @@ class MainActivity : Activity() {
         }
         val endCard = makeTitleCard("12 KASIM 1999\nDÜZCE DEPREMİ\n${closingInput.text}", "duzce-end.png")
         items.add(imageItem(endCard, cardMs))
-        val sequences = mutableListOf(EditedMediaItemSequence.withAudioAndVideoFrom(items))
+        // Media3 1.6.1 API: use the list constructors for sequences.
+        val sequences = mutableListOf(EditedMediaItemSequence(items))
         musicUri?.let { uri ->
             val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(uri)).build()
-            sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(audioItem)).buildUpon().setIsLooping(true).build())
+            sequences.add(EditedMediaItemSequence(listOf(audioItem), true))
         }
         voiceUri?.let { uri ->
             val voiceMedia = MediaItem.Builder().setUri(uri)
                 .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setEndPositionMs(totalMs).build())
                 .build()
             val voiceItem = EditedMediaItem.Builder(voiceMedia).build()
-            sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(voiceItem)).buildUpon().setIsLooping(false).build())
+            sequences.add(EditedMediaItemSequence(listOf(voiceItem), false))
         }
         val composition = Composition.Builder(sequences).build()
         val output = File(cacheDir, "duzce-anma-${System.currentTimeMillis()}.mp4")
