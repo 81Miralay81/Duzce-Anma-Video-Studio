@@ -16,6 +16,8 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.Effects
+import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -175,6 +177,16 @@ class MainActivity : Activity() {
     }
 
     @OptIn(UnstableApi::class)
+    private fun imageItem(uri: Uri, durationMs: Long): EditedMediaItem {
+        val media = MediaItem.Builder().setUri(uri).setImageDurationMs(durationMs).build()
+        val portrait = Presentation.createForWidthAndHeight(1080, 1920, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP)
+        return EditedMediaItem.Builder(media)
+            .setFrameRate(30)
+            .setEffects(Effects(emptyList(), listOf(portrait)))
+            .build()
+    }
+
+    @OptIn(UnstableApi::class)
     private fun createVideo() {
         if (exporting) return
         if (photos.isEmpty()) { status.text = "Önce en az bir fotoğraf seç."; return }
@@ -186,13 +198,10 @@ class MainActivity : Activity() {
         val eachPhotoMs = photoMs / photos.size
         val items = mutableListOf<EditedMediaItem>()
         val startCard = makeTitleCard(titleInput.text.toString(), "duzce-start.png")
-        items.add(EditedMediaItem.Builder(MediaItem.Builder().setUri(startCard).setImageDurationMs(cardMs).build()).setFrameRate(30).build())
-        photos.forEach { uri ->
-            val media = MediaItem.Builder().setUri(uri).setImageDurationMs(eachPhotoMs).build()
-            items.add(EditedMediaItem.Builder(media).setFrameRate(30).build())
-        }
+        items.add(imageItem(startCard, cardMs))
+        photos.forEach { uri -> items.add(imageItem(uri, eachPhotoMs)) }
         val endCard = makeTitleCard("12 KASIM 1999\nDÜZCE DEPREMİ\n${closingInput.text}", "duzce-end.png")
-        items.add(EditedMediaItem.Builder(MediaItem.Builder().setUri(endCard).setImageDurationMs(cardMs).build()).setFrameRate(30).build())
+        items.add(imageItem(endCard, cardMs))
         val videoSequence = EditedMediaItemSequence.withAudioAndVideoFrom(items)
         val composition = if (musicUri != null) {
             val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(musicUri!!)).build()
