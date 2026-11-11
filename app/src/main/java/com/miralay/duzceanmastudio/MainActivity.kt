@@ -263,7 +263,10 @@ class MainActivity : Activity() {
             sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(audioItem)).buildUpon().setIsLooping(true).build())
         }
         voiceUri?.let { uri ->
-            val voiceItem = EditedMediaItem.Builder(MediaItem.fromUri(uri)).build()
+            val voiceMedia = MediaItem.Builder().setUri(uri)
+                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setEndPositionMs(totalMs).build())
+                .build()
+            val voiceItem = EditedMediaItem.Builder(voiceMedia).build()
             sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(voiceItem)).buildUpon().setIsLooping(false).build())
         }
         val composition = Composition.Builder(sequences).build()
