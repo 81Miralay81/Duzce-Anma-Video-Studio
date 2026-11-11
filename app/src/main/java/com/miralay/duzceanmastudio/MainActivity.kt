@@ -37,8 +37,10 @@ import java.io.FileInputStream
 class MainActivity : Activity() {
     private val photos = mutableListOf<Uri>()
     private var musicUri: Uri? = null
+    private var voiceUri: Uri? = null
     private lateinit var photoInfo: TextView
     private lateinit var musicInfo: TextView
+    private lateinit var voiceInfo: TextView
     private lateinit var titleInput: EditText
     private lateinit var closingInput: EditText
     private lateinit var status: TextView
@@ -87,8 +89,10 @@ class MainActivity : Activity() {
         closingInput.addTextChangedListener(saveWatcher)
         root.addView(action("FOTOĞRAFLARI SEÇ", ::pickPhotos))
         photoInfo = label("Henüz fotoğraf seçilmedi"); root.addView(photoInfo)
-        root.addView(action("ARKA PLAN MÜZİĞİ / SES KAYDI SEÇ", ::pickMusic))
+        root.addView(action("ARKA PLAN MÜZİĞİ SEÇ", ::pickMusic))
         musicInfo = label("İsteğe bağlı müzik seçilmedi"); root.addView(musicInfo)
+        root.addView(action("SESLENDİRME / KONUŞMA KAYDI SEÇ", ::pickVoice))
+        voiceInfo = label("İsteğe bağlı seslendirme seçilmedi"); root.addView(voiceInfo)
         root.addView(action("45 SANİYELİK MP4 OLUŞTUR", ::createVideo))
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100; progress = 0 }
         root.addView(progressBar, ViewGroup.LayoutParams(-1, -2))
@@ -115,6 +119,12 @@ class MainActivity : Activity() {
         }
         startActivityForResult(intent, 413)
     }
+    private fun pickVoice() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "audio/*"; addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        startActivityForResult(intent, 414)
+    }
     private fun exportProject() {
         pendingJson = JSONObject().apply {
             put("format", "miralay-duzce-project"); put("version", 2)
@@ -122,6 +132,7 @@ class MainActivity : Activity() {
             put("aspectRatio", "9:16"); put("width", 1080); put("height", 1920); put("durationSeconds", 45)
             put("photos", JSONArray().also { a -> photos.forEach { a.put(it.toString()) } })
             put("music", musicUri?.toString() ?: JSONObject.NULL)
+            put("voice", voiceUri?.toString() ?: JSONObject.NULL)
         }.toString(2)
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
@@ -143,6 +154,7 @@ class MainActivity : Activity() {
         val a = obj.optJSONArray("photos") ?: JSONArray()
         for (i in 0 until a.length()) runCatching { photos.add(Uri.parse(a.getString(i))) }
         musicUri = obj.optString("music").takeIf { it.isNotBlank() && it != "null" }?.let { Uri.parse(it) }
+        voiceUri = obj.optString("voice").takeIf { it.isNotBlank() && it != "null" }?.let { Uri.parse(it) }
         updateMediaInfo(); saveLocal()
         status.text = "Proje içe aktarıldı. Medya erişimi bu cihazdaki izinlere bağlıdır."
     }
@@ -150,7 +162,8 @@ class MainActivity : Activity() {
         prefs.edit().putString("title", titleInput.text.toString())
             .putString("closing", closingInput.text.toString())
             .putString("photos", JSONArray().also { a -> photos.forEach { a.put(it.toString()) } }.toString())
-            .putString("music", musicUri?.toString()).apply()
+            .putString("music", musicUri?.toString())
+            .putString("voice", voiceUri?.toString()).apply()
     }
     private fun restoreProject() {
         titleInput.setText(prefs.getString("title", titleInput.text.toString()))
@@ -158,11 +171,13 @@ class MainActivity : Activity() {
         val a = runCatching { JSONArray(prefs.getString("photos", "[]")) }.getOrDefault(JSONArray())
         for (i in 0 until a.length()) runCatching { photos.add(Uri.parse(a.getString(i))) }
         musicUri = prefs.getString("music", null)?.let { Uri.parse(it) }
+        voiceUri = prefs.getString("voice", null)?.let { Uri.parse(it) }
         updateMediaInfo()
     }
     private fun updateMediaInfo() {
         photoInfo.text = "${photos.size} fotoğraf seçildi"
         musicInfo.text = if (musicUri == null) "İsteğe bağlı müzik seçilmedi" else "Arka plan müziği seçildi"
+        voiceInfo.text = if (voiceUri == null) "İsteğe bağlı seslendirme seçilmedi" else "Seslendirme kaydı seçildi"
     }
 
     private fun makeTitleCard(text: String, fileName: String): Uri {
@@ -230,13 +245,16 @@ class MainActivity : Activity() {
         }
         val endCard = makeTitleCard("12 KASIM 1999\nDÜZCE DEPREMİ\n${closingInput.text}", "duzce-end.png")
         items.add(imageItem(endCard, cardMs))
-        val videoSequence = EditedMediaItemSequence.withAudioAndVideoFrom(items)
-        val composition = if (musicUri != null) {
-            val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(musicUri!!)).build()
-            val audioSequence = EditedMediaItemSequence.withAudioFrom(listOf(audioItem))
-                .buildUpon().setIsLooping(true).build()
-            Composition.Builder(videoSequence, audioSequence).build()
-        } else Composition.Builder(videoSequence).build()
+        val sequences = mutableListOf(EditedMediaItemSequence.withAudioAndVideoFrom(items))
+        musicUri?.let { uri ->
+            val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(uri)).build()
+            sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(audioItem)).buildUpon().setIsLooping(true).build())
+        }
+        voiceUri?.let { uri ->
+            val voiceItem = EditedMediaItem.Builder(MediaItem.fromUri(uri)).build()
+            sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(voiceItem)).buildUpon().setIsLooping(false).build())
+        }
+        val composition = Composition.Builder(sequences).build()
         val output = File(cacheDir, "duzce-anma-${System.currentTimeMillis()}.mp4")
         outputFile = output
         val listener = object : Transformer.Listener {
@@ -339,6 +357,11 @@ class MainActivity : Activity() {
                 musicUri = data.data
                 musicUri?.let { runCatching { contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
                 updateMediaInfo(); saveLocal(); status.text = "Arka plan müziği seçildi."
+            }
+            414 -> {
+                voiceUri = data.data
+                voiceUri?.let { runCatching { contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
+                updateMediaInfo(); saveLocal(); status.text = "Seslendirme kaydı seçildi."
             }
             411 -> {
                 val payload = pendingJson ?: return
