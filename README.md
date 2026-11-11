@@ -1,25 +1,28 @@
 # Düzce Anma Video Stüdyosu
 
-Android telefonlarda ücretsiz ve yerel çalışan, 12 Kasım 1999 Düzce Depremi anma videosu hazırlama uygulaması.
+12 Kasım 1999 Düzce Depremi için Android telefonda ücretsiz ve yerel çalışan anma videosu hazırlama uygulaması.
 
-## Mevcut özellikler
-- Telefonda birden fazla fotoğraf seçme ve erişim iznini saklama
-- Başlık ve kapanış metni düzenleme
-- İsteğe bağlı arka plan müziği seçme
-- 45 saniyelik, 9:16 dikey MP4 slayt gösterisi oluşturma
-- Başlangıç ve kapanış kartlarını otomatik üretme
-- MP4 dosyasını cihazın Galeri/Movies/Duzce Anma klasörüne kaydetme
-- Projeyi JSON olarak dışa ve içe aktarma
-- Video işleme cihaz üzerinde Media3 Transformer ile yapılır; ücretli API gerekmez
+## Uygulama özellikleri
+- Birden fazla fotoğraf seçme; seçilen sırada videoya ekleme
+- Başlangıç ve kapanış kartları ile başlık/kapanış metnini düzenleme
+- İsteğe bağlı cihazdan arka plan müziği veya ses kaydı seçme
+- 45 saniyelik, dikey 9:16 (1080 × 1920 hedefli), 30 FPS MP4 slayt gösterisi
+- Fotoğrafları zaman çizelgesine eşit dağıtma; toplam süreyi 45 saniyeye sabitleme
+- Dışa aktarma sırasında yüzde ilerleme çubuğu ve iptal düğmesi
+- Videoyu Galeri'de Movies/Duzce Anma klasörüne kaydetme
+- Projeyi JSON olarak içe/dışa aktarma ve cihazda yerel ayarları saklama
+- Media3 Transformer ile cihaz üzerinde işleme; ücretli API/abonelik yok
+- Düzce anma temalı uygulama simgesi
 
 ## Bilinen sınırlar
-- Fotoğraflar şu an seçildikleri sırayla eklenir; zaman çizelgesinde sürükle-bırak sıralama ve geçiş efektleri henüz yoktur.
-- JSON proje dosyası medya dosyalarını içine gömmez; seçilen fotoğraf ve ses URI'lerini saklar. Bu nedenle içe aktarma esas olarak aynı cihazdaki kaynaklarla çalışır.
-- Ses parçası arka plan müziği olarak kullanılır. Ses miksajı, seslendirme kaydı, gerçek arşiv fotoğrafı arşivi ve gelişmiş efektler sonraki geliştirmelerdir.
-- Video oluşturma işlemi telefonun işlemci ve depolama performansına bağlıdır.
+- Fotoğraflar seçildikleri sırayla kullanılır; henüz sürükle-bırak sıralama, sahne başına özel süre, geçiş efekti ve video önizleme yoktur.
+- JSON proje dosyası fotoğraf/ses dosyalarını içine gömmez; yalnızca cihaz URI'lerini saklar. Bu nedenle medya erişimi aynı cihazda ve aynı dosyalar mevcutken çalışır.
+- Uygulama şu an tek bir arka plan ses dosyası ekler. Ayrı seslendirme kaydı, otomatik Türkçe anlatıcı, ambiyans katmanları ve miksaj sonraki geliştirmelerdir.
+- Video oluşturma hızı ve desteklenen kodlayıcılar telefonun donanımına bağlıdır.
+- Minimum Android sürümü Android 10 (API 29).
 
 ## Telif ve tarihsel doğruluk
-Arşiv fotoğraflarını yalnızca kullanım izni/lisansı uygunsa kullanın. Yapay zekâ ile üretilen sahneleri gerçek arşiv fotoğrafı gibi göstermeyin; ekranda açıkça **CANLANDIRMA** olarak belirtin.
+Arşiv fotoğraflarını yalnızca kullanım izni/lisansı uygunsa kullanın. Yapay zekâ ile üretilen sahneleri gerçek arşiv fotoğrafı gibi göstermeyin; videoda açıkça **CANLANDIRMA** olarak belirtin.
 
-## Geliştirme ve APK
-Proje Android/Kotlin tabanlıdır. GitHub Actions, her ana dala gönderimde ücretsiz debug APK derlemesi yapar ve çıktıyı workflow artifact olarak sunar.
+## APK derlemesi
+GitHub Actions, ana dala her gönderimde ücretsiz debug APK derler ve `Duzce-Anma-Studio-debug-apk` adlı artifact olarak yükler. APK henüz cihaz üzerinde denenmeden kararlı sürüm olarak kabul edilmemelidir.
