@@ -7,25 +7,12 @@ import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
-import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 
-class MainActivity : ComponentActivity() {
+class MainActivity : Activity() {
     private val photos = mutableListOf<Uri>()
     private lateinit var photoInfo: TextView
-    private lateinit var titleInput: EditText
-    private lateinit var closingInput: EditText
 
-    private val photoPicker = registerForActivityResult(
-        ActivityResultContracts.GetMultipleContents()
-    ) { selected ->
-        if (selected != null) {
-            photos.clear()
-            photos.addAll(selected)
-            photoInfo.text = "${photos.size} fotoğraf seçildi"
-        }
-    }
-
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
@@ -39,37 +26,51 @@ class MainActivity : ComponentActivity() {
             setTextColor(0xFFE8EDF2.toInt())
             setPadding(0, 16, 0, 8)
         }
-        val heading = label("DÜZCE ANMA VİDEO STÜDYOSU").apply {
+        root.addView(label("DÜZCE ANMA VİDEO STÜDYOSU").apply {
             textSize = 21f
             gravity = Gravity.CENTER
-        }
-        root.addView(heading)
+        })
         root.addView(label("12 Kasım 1999 • Unutmadık, unutmayacağız"))
-        titleInput = EditText(this).apply {
+        val title = EditText(this).apply {
             hint = "Video başlığı"
             setText("12 KASIM 1999 – DÜZCE DEPREMİ")
             setTextColor(0xFFFFFFFF.toInt())
-            setHintTextColor(0xFFB0BEC5.toInt())
         }
-        root.addView(titleInput, ViewGroup.LayoutParams(-1, -2))
-        closingInput = EditText(this).apply {
+        root.addView(title, ViewGroup.LayoutParams(-1, -2))
+        val closing = EditText(this).apply {
             hint = "Kapanış yazısı"
             setText("UNUTMADIK, UNUTMAYACAĞIZ.")
             setTextColor(0xFFFFFFFF.toInt())
-            setHintTextColor(0xFFB0BEC5.toInt())
         }
-        root.addView(closingInput, ViewGroup.LayoutParams(-1, -2))
-        val choose = Button(this).apply {
+        root.addView(closing, ViewGroup.LayoutParams(-1, -2))
+        root.addView(Button(this).apply {
             text = "Fotoğrafları telefondan seç"
-            setOnClickListener { photoPicker.launch("image/*") }
-        }
-        root.addView(choose)
+            setOnClickListener {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    type = "image/*"
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
+                startActivityForResult(intent, 410)
+            }
+        })
         photoInfo = label("Henüz fotoğraf seçilmedi")
         root.addView(photoInfo)
-        root.addView(label("Video biçimi: Dikey 9:16 • Hedef: 1080 × 1920 • Süre: yaklaşık 45 sn"))
-        root.addView(label("Bu ilk sürüm proje hazırlama ekranıdır. MP4 dışa aktarma sonraki aşamada eklenecek."))
-        val footer = label("Arşiv fotoğraflarında kullanım iznini kontrol edin. Yapay görseller CANLANDIRMA olarak işaretlenmelidir.")
-        root.addView(footer)
+        root.addView(label("Dikey 9:16 • Hedef 1080 × 1920 • Yaklaşık 45 saniye"))
+        root.addView(label("Bu başlangıç sürümü fotoğraf seçimi ve proje metinlerini hazırlar. MP4 oluşturma henüz eklenmedi."))
+        root.addView(label("Arşiv fotoğraflarında kullanım iznini kontrol edin. Yapay görseller CANLANDIRMA olarak belirtilmelidir."))
         setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    @Deprecated("Legacy document picker result")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 410 && resultCode == RESULT_OK && data != null) {
+            photos.clear()
+            data.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) photos.add(clip.getItemAt(i).uri)
+            } ?: data.data?.let { photos.add(it) }
+            photoInfo.text = "${photos.size} fotoğraf seçildi"
+        }
     }
 }
