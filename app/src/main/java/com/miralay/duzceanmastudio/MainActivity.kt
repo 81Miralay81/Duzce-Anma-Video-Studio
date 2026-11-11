@@ -123,6 +123,13 @@ class MainActivity : Activity() {
             background = gradient(intArrayOf(0xFF6D35D4.toInt(), 0xFFB52D83.toInt(), 0xFFFF713D.toInt()), 28f)
             elevation = 8f
         }
+        val banner = ImageView(this).apply {
+            setImageResource(R.drawable.banner_kanatix)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            alpha = 0.98f
+        }
+        hero.addView(banner, LinearLayout.LayoutParams(-1, 96))
+        addGap(hero, 10)
         hero.addView(text("HAYALİNDEKİ VİDEO,", 13f, 0xFFFFE6D8.toInt(), true))
         hero.addView(text("BİRKAÇ DOKUNUŞLA HAZIR.", 25f, android.graphics.Color.WHITE, true))
         addGap(hero, 8)
