@@ -57,30 +57,106 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply {
+        window.statusBarColor = android.graphics.Color.rgb(12, 15, 31)
+        window.navigationBarColor = android.graphics.Color.rgb(12, 15, 31)
+        val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 28, 24, 24)
-            setBackgroundColor(0xFF101820.toInt())
+            setPadding(20, 22, 20, 28)
+            setBackgroundColor(0xFF0C0F1F.toInt())
         }
-        fun label(value: String) = TextView(this).apply {
-            text = value; textSize = 15f; setTextColor(0xFFE8EDF2.toInt())
-            setPadding(0, 12, 0, 8)
+        fun text(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+            text = value; textSize = size; setTextColor(color)
+            if (bold) typeface = Typeface.create("sans-serif", Typeface.BOLD)
         }
-        fun action(text: String, run: () -> Unit) = Button(this).apply {
-            this.text = text; setOnClickListener { run() }
+        fun rounded(color: Int, radius: Float = 22f) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(color); cornerRadius = radius
         }
-        root.addView(label("DÜZCE ANMA VİDEO STÜDYOSU").apply { textSize = 22f; gravity = Gravity.CENTER })
-        root.addView(label("12 Kasım 1999 • UNUTMADIK, UNUTMAYACAĞIZ"))
+        fun gradient(colors: IntArray, radius: Float = 24f) = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR, colors
+        ).apply { cornerRadius = radius }
+        fun action(label: String, colors: IntArray = intArrayOf(0xFFFF6B35.toInt(), 0xFFE83F72.toInt()), run: () -> Unit) =
+            Button(this).apply {
+                text = label; isAllCaps = false; textSize = 15f
+                setTextColor(android.graphics.Color.WHITE)
+                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+                background = gradient(colors, 18f)
+                stateListAnimator = null
+                elevation = 5f
+                setPadding(18, 7, 18, 7)
+                minHeight = 54
+                setOnClickListener { run() }
+            }
+        fun card(): LinearLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(18, 18, 18, 18)
+            background = rounded(0xFF171D35.toInt(), 22f)
+            elevation = 2f
+        }
+        fun addGap(target: LinearLayout, height: Int = 14) {
+            target.addView(android.view.View(this), LinearLayout.LayoutParams(1, height))
+        }
+
+        val brandRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val mark = TextView(this).apply {
+            text = "KX"; textSize = 22f; typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            gravity = Gravity.CENTER; setTextColor(0xFF11152A.toInt())
+            background = gradient(intArrayOf(0xFFFFD166.toInt(), 0xFFFF6B35.toInt()), 20f)
+            layoutParams = LinearLayout.LayoutParams(58, 58)
+        }
+        brandRow.addView(mark)
+        val brandCopy = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(13, 0, 0, 0)
+        }
+        brandCopy.addView(text("KANATIX", 23f, 0xFFFFFFFF.toInt(), true))
+        brandCopy.addView(text("VIDEO OLUŞTURUCU", 11f, 0xFFFFB86B.toInt(), true))
+        brandRow.addView(brandCopy)
+        brandRow.addView(android.view.View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        brandRow.addView(text("STÜDYO  •  01", 10f, 0xFF9CA8C7.toInt(), true))
+        page.addView(brandRow)
+        addGap(page, 20)
+
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(22, 24, 22, 22)
+            background = gradient(intArrayOf(0xFF6D35D4.toInt(), 0xFFB52D83.toInt(), 0xFFFF713D.toInt()), 28f)
+            elevation = 8f
+        }
+        hero.addView(text("HAYALİNDEKİ VİDEO,", 13f, 0xFFFFE6D8.toInt(), true))
+        hero.addView(text("BİRKAÇ DOKUNUŞLA HAZIR.", 25f, android.graphics.Color.WHITE, true))
+        addGap(hero, 8)
+        hero.addView(text("Fotoğraflarını, videolarını ve seslerini bir araya getir. Hikâyeni kendi tarzında oluştur.", 14f, 0xFFFFF1ED.toInt()))
+        addGap(hero, 17)
+        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        listOf("✦  1080P", "▣  9:16 / 16:9", "♫  MÜZİK + SES").forEach { value ->
+            val chip = text(value, 10f, android.graphics.Color.WHITE, true).apply {
+                setPadding(11, 9, 11, 9); background = rounded(0x44FFFFFF, 30f)
+            }
+            val lp = LinearLayout.LayoutParams(-2, -2); lp.marginEnd = 7
+            chips.addView(chip, lp)
+        }
+        hero.addView(chips)
+        page.addView(hero)
+        addGap(page, 18)
+
+        val projectCard = card()
+        projectCard.addView(text("PROJE DETAYLARI", 12f, 0xFFFFB86B.toInt(), true))
+        addGap(projectCard, 10)
+        projectCard.addView(text("Videona bir isim ver", 15f, 0xFFF4F5FF.toInt(), true))
         titleInput = EditText(this).apply {
-            hint = "Video başlığı"; setTextColor(-1); setHintTextColor(0xFF9EADB9.toInt())
-            setText("12 KASIM 1999 – DÜZCE DEPREMİ")
+            hint = "Örn. Düzce Anma Videosu"; setTextColor(-1); setHintTextColor(0xFF9CA8C7.toInt())
+            setText(prefs.getString("title", "")); textSize = 15f
+            background = rounded(0xFF242C49.toInt(), 14f); setPadding(15, 13, 15, 13)
         }
-        root.addView(titleInput, ViewGroup.LayoutParams(-1, -2))
+        projectCard.addView(titleInput, LinearLayout.LayoutParams(-1, -2))
+        addGap(projectCard, 12)
+        projectCard.addView(text("Kapanış mesajı", 15f, 0xFFF4F5FF.toInt(), true))
         closingInput = EditText(this).apply {
-            hint = "Kapanış yazısı"; setTextColor(-1); setHintTextColor(0xFF9EADB9.toInt())
-            setText("UNUTMADIK, UNUTMAYACAĞIZ.")
+            hint = "Videonun sonunda görünecek yazı"; setTextColor(-1); setHintTextColor(0xFF9CA8C7.toInt())
+            setText(prefs.getString("closing", "")); textSize = 15f
+            background = rounded(0xFF242C49.toInt(), 14f); setPadding(15, 13, 15, 13)
         }
-        root.addView(closingInput, ViewGroup.LayoutParams(-1, -2))
+        projectCard.addView(closingInput, LinearLayout.LayoutParams(-1, -2))
         val saveWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -88,34 +164,67 @@ class MainActivity : Activity() {
         }
         titleInput.addTextChangedListener(saveWatcher)
         closingInput.addTextChangedListener(saveWatcher)
-        root.addView(action("FOTOĞRAFLARI SEÇ", ::pickPhotos))
-        photoInfo = label("Henüz fotoğraf seçilmedi"); root.addView(photoInfo)
-        root.addView(action("ARKA PLAN MÜZİĞİ SEÇ", ::pickMusic))
-        musicInfo = label("İsteğe bağlı müzik seçilmedi"); root.addView(musicInfo)
-        root.addView(action("SESLENDİRME / KONUŞMA KAYDI SEÇ", ::pickVoice))
-        voiceInfo = label("İsteğe bağlı seslendirme seçilmedi"); root.addView(voiceInfo)
-        root.addView(action("45 SANİYELİK MP4 OLUŞTUR", ::createVideo))
-        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100; progress = 0 }
-        root.addView(progressBar, ViewGroup.LayoutParams(-1, -2))
-        root.addView(action("VİDEO OLUŞTURMAYI İPTAL ET", ::cancelVideo))
-        root.addView(action("PROJEYİ DIŞA AKTAR (JSON)") { exportProject() })
-        root.addView(action("PROJEYİ İÇE AKTAR (JSON)") { importProject() })
-        root.addView(label("Dikey 9:16 • 1080 × 1920 hedef • 45 saniye"))
-        status = label("Fotoğrafları seç. İstersen cihazındaki müziği ekle. Video cihaz üzerinde hazırlanır.")
-        root.addView(status)
-        root.addView(label("Telif hakkı bulunan müzik ve arşiv fotoğraflarını izinsiz kullanma. Yapay canlandırmaları videoda CANLANDIRMA olarak belirt."))
-        root.setOnApplyWindowInsetsListener { view, insets ->
-            val bars = if (android.os.Build.VERSION.SDK_INT >= 30) {
-                insets.getInsets(WindowInsets.Type.systemBars())
-            } else {
-                android.graphics.Insets.of(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
-                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
-            }
-            view.setPadding(24, bars.top + 28, 24, bars.bottom + 24)
-            insets
+        page.addView(projectCard)
+        addGap(page)
+
+        fun mediaCard(title: String, desc: String, buttonText: String, info: TextView, run: () -> Unit) {
+            val c = card()
+            c.addView(text(title, 16f, 0xFFFFFFFF.toInt(), true))
+            addGap(c, 5)
+            c.addView(text(desc, 12f, 0xFF9CA8C7.toInt()))
+            addGap(c, 10)
+            c.addView(info.apply { textSize = 12f; setTextColor(0xFF75E0C0.toInt()) })
+            addGap(c, 10)
+            c.addView(action(buttonText, intArrayOf(0xFF2878F0.toInt(), 0xFF19B6C8.toInt()), run))
+            page.addView(c)
+            addGap(page)
         }
-        setContentView(ScrollView(this).apply { addView(root) })
+        photoInfo = text("Henüz görsel eklenmedi", 12f, 0xFF75E0C0.toInt())
+        musicInfo = text("İsteğe bağlı • Henüz seçilmedi", 12f, 0xFF75E0C0.toInt())
+        voiceInfo = text("İsteğe bağlı • Henüz seçilmedi", 12f, 0xFF75E0C0.toInt())
+        mediaCard("01  GÖRSELLERİNİ EKLE", "Fotoğraf ve video sahnelerini seçerek hikâyeni oluştur.", "＋  MEDYA SEÇ", photoInfo, ::pickPhotos)
+        mediaCard("02  MÜZİĞİNİ BELİRLE", "Arka plan müziğiyle videona atmosfer kat.", "♫  MÜZİK SEÇ", musicInfo, ::pickMusic)
+        mediaCard("03  SESLENDİRME EKLE", "Kendi ses kaydını veya anlatımını kullan.", "🎙  SES DOSYASI SEÇ", voiceInfo, ::pickVoice)
+
+        val packageCard = card()
+        packageCard.addView(text("HAZIR PROJE PAKETİ", 15f, 0xFFFFB86B.toInt(), true))
+        addGap(packageCard, 5)
+        packageCard.addView(text("Başka bir konuda hazırlanmış projeyi tek ZIP dosyasıyla içe aktar. Medyalar paketin içinden otomatik yerleştirilir.", 12f, 0xFFB8C2DD.toInt()))
+        addGap(packageCard, 12)
+        packageCard.addView(action("⇩  PROJE PAKETİ İÇE AKTAR", intArrayOf(0xFF7856E8.toInt(), 0xFFB34BCB.toInt())) { importProject() })
+        addGap(packageCard, 8)
+        packageCard.addView(action("⇧  PROJE PAKETİ DIŞA AKTAR", intArrayOf(0xFF34466F.toInt(), 0xFF536A9B.toInt())) { exportProject() })
+        page.addView(packageCard)
+        addGap(page, 18)
+
+        val render = action("▶   VİDEOYU OLUŞTUR", intArrayOf(0xFFFF8A00.toInt(), 0xFFE52E71.toInt()), ::createVideo).apply {
+            textSize = 17f; minHeight = 62
+        }
+        page.addView(render)
+        addGap(page, 10)
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100; progress = 0
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFFFF8A00.toInt())
+        }
+        page.addView(progressBar, LinearLayout.LayoutParams(-1, 9))
+        addGap(page, 7)
+        status = text("Stüdyo hazır. Önce görsellerini ekle veya hazır bir proje paketi aç.", 12f, 0xFFB8C2DD.toInt())
+        page.addView(status)
+        addGap(page, 8)
+        page.addView(action("İŞLEMİ İPTAL ET", intArrayOf(0xFF39415D.toInt(), 0xFF252C44.toInt()), ::cancelVideo))
+        addGap(page, 18)
+        val footer = text("KANATIX STUDIO  •  FİKRİNİ GÖRÜNTÜYE DÖNÜŞTÜR", 10f, 0xFF7885A8.toInt(), true)
+        footer.gravity = Gravity.CENTER
+        page.addView(footer)
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(0xFF0C0F1F.toInt())
+            addView(page)
+        }
+        setContentView(scroll)
         restoreProject()
+        window.decorView.systemUiVisibility = 0
     }
 
     private fun pickPhotos() {
