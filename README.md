@@ -5,7 +5,7 @@
 ## Uygulama özellikleri
 - Birden fazla fotoğraf seçme; seçilen sırada videoya ekleme
 - Başlangıç ve kapanış kartları ile başlık/kapanış metnini düzenleme
-- İsteğe bağlı cihazdan arka plan müziği veya ses kaydı seçme
+- İsteğe bağlı arka plan müziği ve ayrı seslendirme/konuşma kaydı seçme; ses parçaları videoyla birlikte mikslenir
 - 45 saniyelik, dikey 9:16 (1080 × 1920 hedefli), 30 FPS MP4 slayt gösterisi
 - Fotoğrafları zaman çizelgesine eşit dağıtma; toplam süreyi 45 saniyeye sabitleme
 - Dışa aktarma sırasında yüzde ilerleme çubuğu ve iptal düğmesi
@@ -17,7 +17,7 @@
 ## Bilinen sınırlar
 - Fotoğraflar seçildikleri sırayla kullanılır; henüz sürükle-bırak sıralama, sahne başına özel süre, geçiş efekti ve video önizleme yoktur.
 - JSON proje dosyası fotoğraf/ses dosyalarını içine gömmez; yalnızca cihaz URI'lerini saklar. Bu nedenle medya erişimi aynı cihazda ve aynı dosyalar mevcutken çalışır.
-- Uygulama şu an tek bir arka plan ses dosyası ekler. Ayrı seslendirme kaydı, otomatik Türkçe anlatıcı, ambiyans katmanları ve miksaj sonraki geliştirmelerdir.
+- Uygulama arka plan müziği ile ayrı seslendirme dosyasını iki ses katmanı olarak birleştirir. Otomatik Türkçe anlatıcı, ambiyans katmanları ve ses seviyesi ayarı sonraki geliştirmelerdir.
 - Video oluşturma hızı ve desteklenen kodlayıcılar telefonun donanımına bağlıdır.
 - Minimum Android sürümü Android 10 (API 29).
 
