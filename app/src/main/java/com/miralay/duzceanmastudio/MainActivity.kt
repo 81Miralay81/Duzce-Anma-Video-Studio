@@ -196,18 +196,19 @@ class MainActivity : Activity() {
         val cardMs = 4_000L
         val photoMs = totalMs - cardMs * 2
         val eachPhotoMs = photoMs / photos.size
+        val photoRemainderMs = photoMs % photos.size
         val items = mutableListOf<EditedMediaItem>()
         val startCard = makeTitleCard(titleInput.text.toString(), "duzce-start.png")
         items.add(imageItem(startCard, cardMs))
-        photos.forEach { uri -> items.add(imageItem(uri, eachPhotoMs)) }
+        photos.forEachIndexed { index, uri ->
+            val duration = eachPhotoMs + if (index == photos.lastIndex) photoRemainderMs else 0L
+            items.add(imageItem(uri, duration))
+        }
         val endCard = makeTitleCard("12 KASIM 1999\nDÜZCE DEPREMİ\n${closingInput.text}", "duzce-end.png")
         items.add(imageItem(endCard, cardMs))
         val videoSequence = EditedMediaItemSequence.withAudioAndVideoFrom(items)
         val composition = if (musicUri != null) {
-            val audioMedia = MediaItem.Builder().setUri(musicUri!!)
-                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setEndPositionMs(totalMs).build())
-                .build()
-            val audioItem = EditedMediaItem.Builder(audioMedia).build()
+            val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(musicUri!!)).build()
             val audioSequence = EditedMediaItemSequence.withAudioFrom(listOf(audioItem))
                 .buildUpon().setIsLooping(true).build()
             Composition.Builder(videoSequence, audioSequence).build()
