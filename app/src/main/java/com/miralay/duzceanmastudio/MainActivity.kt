@@ -4,6 +4,8 @@ import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.content.Intent
 import android.content.ContentValues
 import android.net.Uri
@@ -76,6 +78,13 @@ class MainActivity : Activity() {
             setText("UNUTMADIK, UNUTMAYACAĞIZ.")
         }
         root.addView(closingInput, ViewGroup.LayoutParams(-1, -2))
+        val saveWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { saveLocal() }
+        }
+        titleInput.addTextChangedListener(saveWatcher)
+        closingInput.addTextChangedListener(saveWatcher)
         root.addView(action("FOTOĞRAFLARI SEÇ", ::pickPhotos))
         photoInfo = label("Henüz fotoğraf seçilmedi"); root.addView(photoInfo)
         root.addView(action("ARKA PLAN MÜZİĞİ / SES KAYDI SEÇ", ::pickMusic))
@@ -202,6 +211,7 @@ class MainActivity : Activity() {
     private fun createVideo() {
         if (exporting) return
         if (photos.isEmpty()) { status.text = "Önce en az bir fotoğraf seç."; return }
+        if (photos.size > 37) { status.text = "45 saniyelik videoda en fazla 37 fotoğraf seçebilirsin."; return }
         exporting = true
         cancelRequested = false
         progressBar.progress = 0
