@@ -17,6 +17,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.*
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -103,6 +104,17 @@ class MainActivity : Activity() {
         status = label("Fotoğrafları seç. İstersen cihazındaki müziği ekle. Video cihaz üzerinde hazırlanır.")
         root.addView(status)
         root.addView(label("Telif hakkı bulunan müzik ve arşiv fotoğraflarını izinsiz kullanma. Yapay canlandırmaları videoda CANLANDIRMA olarak belirt."))
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val bars = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(WindowInsets.Type.systemBars())
+            } else {
+                @Suppress("DEPRECATION")
+                android.graphics.Insets.of(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
+            }
+            view.setPadding(24, bars.top + 28, 24, bars.bottom + 24)
+            insets
+        }
         setContentView(ScrollView(this).apply { addView(root) })
         restoreProject()
     }
@@ -264,11 +276,16 @@ class MainActivity : Activity() {
                     progressTask?.let { mainHandler.removeCallbacks(it) }
                     progressBar.progress = 100
                     transformer = null
-                    runCatching { saveVideoToGallery(output) }
-                        .onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Düzce Anma.mp4" }
-                        .onFailure { status.text = "Video oluştu ancak galeriye kaydedilemedi: ${it.message}" }
-                    output.delete()
+                    status.text = "Video tamamlandı. Galeriye kaydediliyor…"
                 }
+                Thread {
+                    val result = runCatching { saveVideoToGallery(output) }
+                    output.delete()
+                    runOnUiThread {
+                        result.onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Movies/Duzce Anma" }
+                            .onFailure { status.text = "Video oluştu ancak galeriye kaydedilemedi: ${it.message}" }
+                    }
+                }.start()
             }
             override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
                 runOnUiThread {
