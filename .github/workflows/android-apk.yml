@@ -40,6 +40,6 @@ jobs:
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: Duzce-Anma-Studio-debug-apk
+          name: Kanatix-Video-Creator-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
