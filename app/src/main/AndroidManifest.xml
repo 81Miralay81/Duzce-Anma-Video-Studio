@@ -6,6 +6,7 @@
         android:icon="@drawable/ic_duzce_logo"
         android:allowBackup="true"
         android:supportsRtl="true">
+        <activity android:name=".SceneStudioActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
