@@ -58,179 +58,267 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(12, 15, 31)
-        window.navigationBarColor = android.graphics.Color.rgb(12, 15, 31)
-        val page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(20, 22, 20, 28)
-            setBackgroundColor(0xFF0C0F1F.toInt())
+        val navy = 0xFF050B1C.toInt()
+        val white = 0xFFF7F8FF.toInt()
+        val muted = 0xFFB9C5E3.toInt()
+        window.statusBarColor = navy
+        window.navigationBarColor = navy
+
+        fun gradient(colors: IntArray, radius: Float = 24f) =
+            android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = radius }
+        fun label(value: String, size: Float, color: Int = white, bold: Boolean = false) =
+            TextView(this).apply {
+                text = value
+                textSize = size
+                setTextColor(color)
+                if (bold) typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            }
+        fun gap(parent: LinearLayout, h: Int = 14) {
+            parent.addView(android.view.View(this), LinearLayout.LayoutParams(1, h))
         }
-        fun text(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
-            text = value; textSize = size; setTextColor(color)
-            if (bold) typeface = Typeface.create("sans-serif", Typeface.BOLD)
-        }
-        fun rounded(color: Int, radius: Float = 22f) = android.graphics.drawable.GradientDrawable().apply {
-            setColor(color); cornerRadius = radius
-        }
-        fun gradient(colors: IntArray, radius: Float = 24f) = android.graphics.drawable.GradientDrawable(
-            android.graphics.drawable.GradientDrawable.Orientation.TL_BR, colors
-        ).apply { cornerRadius = radius }
-        fun action(label: String, colors: IntArray = intArrayOf(0xFFFF6B35.toInt(), 0xFFE83F72.toInt()), run: () -> Unit) =
+        fun button(value: String, colors: IntArray, action: () -> Unit) =
             Button(this).apply {
-                text = label; isAllCaps = false; textSize = 15f
-                setTextColor(android.graphics.Color.WHITE)
+                text = value
+                isAllCaps = false
+                textSize = 15f
+                setTextColor(white)
                 typeface = Typeface.create("sans-serif", Typeface.BOLD)
-                background = gradient(colors, 18f)
+                background = gradient(colors, 20f)
                 stateListAnimator = null
                 elevation = 5f
-                setPadding(18, 7, 18, 7)
                 minHeight = 54
-                setOnClickListener { run() }
+                setPadding(16, 8, 16, 8)
+                setOnClickListener { action() }
             }
-        fun card(): LinearLayout = LinearLayout(this).apply {
+        fun panel(): LinearLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(18, 18, 18, 18)
-            background = rounded(0xFF171D35.toInt(), 22f)
-            elevation = 2f
+            setPadding(16, 16, 16, 16)
+            background = gradient(intArrayOf(0xFF111D3A.toInt(), 0xFF18264A.toInt()), 22f)
+            elevation = 3f
         }
-        fun addGap(target: LinearLayout, height: Int = 14) {
-            target.addView(android.view.View(this), LinearLayout.LayoutParams(1, height))
+        fun actionTile(icon: String, title: String, subtitle: String, colors: IntArray, action: () -> Unit): LinearLayout {
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(15, 16, 12, 16)
+                background = gradient(colors, 22f)
+                elevation = 5f
+                setOnClickListener { action() }
+            }
+            val symbol = label(icon, 31f, white, true).apply { gravity = Gravity.CENTER }
+            tile.addView(symbol, LinearLayout.LayoutParams(58, 62))
+            val copy = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(10, 0, 0, 0)
+            }
+            copy.addView(label(title, 16f, white, true))
+            copy.addView(label(subtitle, 11f, 0xFFF1F3FF.toInt()))
+            tile.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+            tile.addView(label("›", 30f, white, true))
+            return tile
         }
 
-        val brandRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val mark = TextView(this).apply {
-            text = "KX"; textSize = 22f; typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-            gravity = Gravity.CENTER; setTextColor(0xFF11152A.toInt())
-            background = gradient(intArrayOf(0xFFFFD166.toInt(), 0xFFFF6B35.toInt()), 20f)
-            layoutParams = LinearLayout.LayoutParams(58, 58)
-        }
-        brandRow.addView(mark)
-        val brandCopy = LinearLayout(this).apply {
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(13, 0, 0, 0)
+            setBackgroundColor(navy)
         }
-        brandCopy.addView(text("KANATIX", 23f, 0xFFFFFFFF.toInt(), true))
-        brandCopy.addView(text("VIDEO OLUŞTURUCU", 11f, 0xFFFFB86B.toInt(), true))
-        brandRow.addView(brandCopy)
-        brandRow.addView(android.view.View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        brandRow.addView(text("STÜDYO  •  01", 10f, 0xFF9CA8C7.toInt(), true))
-        page.addView(brandRow)
-        addGap(page, 20)
+        val scroll = ScrollView(this).apply { isFillViewport = true }
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(18, 16, 18, 24)
+            setBackgroundColor(navy)
+        }
+        scroll.addView(page)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val logo = TextView(this).apply {
+            text = "K"
+            textSize = 30f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setTextColor(0xFF11152A.toInt())
+            background = gradient(intArrayOf(0xFFFFD34F.toInt(), 0xFFFF653D.toInt()), 18f)
+        }
+        top.addView(logo, LinearLayout.LayoutParams(54, 54))
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(12, 0, 0, 0)
+        }
+        brand.addView(label("KANATIX", 22f, white, true))
+        brand.addView(label("VİDEO OLUŞTURUCU", 10f, 0xFFFFC45D.toInt(), true))
+        top.addView(brand)
+        top.addView(android.view.View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        val settings = TextView(this).apply {
+            text = "⚙"
+            textSize = 27f
+            gravity = Gravity.CENTER
+            setTextColor(white)
+            setOnClickListener { scroll.smoothScrollTo(0, page.height) }
+        }
+        top.addView(settings, LinearLayout.LayoutParams(48, 54))
+        page.addView(top)
+        gap(page, 16)
 
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(22, 24, 22, 22)
-            background = gradient(intArrayOf(0xFF6D35D4.toInt(), 0xFFB52D83.toInt(), 0xFFFF713D.toInt()), 28f)
+            setPadding(15, 15, 15, 18)
+            background = gradient(intArrayOf(0xFF082B66.toInt(), 0xFF142A68.toInt(), 0xFF4B176D.toInt()), 25f)
             elevation = 8f
         }
         val banner = ImageView(this).apply {
             setImageResource(R.drawable.banner_kanatix)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            alpha = 0.98f
+            adjustViewBounds = true
         }
-        hero.addView(banner, LinearLayout.LayoutParams(-1, 96))
-        addGap(hero, 10)
-        hero.addView(text("HAYALİNDEKİ VİDEO,", 13f, 0xFFFFE6D8.toInt(), true))
-        hero.addView(text("BİRKAÇ DOKUNUŞLA HAZIR.", 25f, android.graphics.Color.WHITE, true))
-        addGap(hero, 8)
-        hero.addView(text("Fotoğraflarını, videolarını ve seslerini bir araya getir. Hikâyeni kendi tarzında oluştur.", 14f, 0xFFFFF1ED.toInt()))
-        addGap(hero, 17)
-        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        listOf("✦  1080P", "▣  9:16 / 16:9", "♫  MÜZİK + SES").forEach { value ->
-            val chip = text(value, 10f, android.graphics.Color.WHITE, true).apply {
-                setPadding(11, 9, 11, 9); background = rounded(0x44FFFFFF, 30f)
-            }
-            val lp = LinearLayout.LayoutParams(-2, -2); lp.marginEnd = 7
-            chips.addView(chip, lp)
-        }
-        hero.addView(chips)
+        hero.addView(banner, LinearLayout.LayoutParams(-1, 142))
+        gap(hero, 7)
+        hero.addView(label("HAYALLERİNİ VİDEOYA DÖNÜŞTÜR", 19f, white, true))
+        hero.addView(label("Fotoğraf, müzik ve metinle kendi hikâyeni oluştur.", 12f, 0xFFE0E8FF.toInt()))
+        gap(hero, 13)
+        hero.addView(button("▶   YENİ PROJE BAŞLAT", intArrayOf(0xFFFFD21F.toInt(), 0xFFFF7B00.toInt())) {
+            titleInput.requestFocus()
+            scroll.post { scroll.smoothScrollTo(0, titleInput.top + 950) }
+            status.text = "Proje başlığı ve kapanış metnini düzenleyebilir, ardından medyalarını ekleyebilirsin."
+        })
         page.addView(hero)
-        addGap(page, 18)
+        gap(page, 16)
 
-        val projectCard = card()
-        projectCard.addView(text("PROJE DETAYLARI", 12f, 0xFFFFB86B.toInt(), true))
-        addGap(projectCard, 10)
-        projectCard.addView(text("Videona bir isim ver", 15f, 0xFFF4F5FF.toInt(), true))
+        page.addView(actionTile("▤", "Proje Paketi İçe Aktar", "Hazır projeni ZIP dosyasından aç", intArrayOf(0xFF7227C9.toInt(), 0xFF421C91.toInt())) { importProject() })
+        gap(page, 10)
+        page.addView(actionTile("⇧", "Proje Paketi Dışa Aktar", "Proje ve medyalarını tek dosyada sakla", intArrayOf(0xFF078C4A.toInt(), 0xFF075B48.toInt())) { exportProject() })
+        gap(page, 10)
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val media = actionTile("▧", "Medya Seç", "Fotoğraf ekle", intArrayOf(0xFFFF9A00.toInt(), 0xFFE44825.toInt())) { pickPhotos() }
+        val music = actionTile("♫", "Müzik / Ses", "Ses dosyası ekle", intArrayOf(0xFF00AFCB.toInt(), 0xFF075E9C.toInt())) {
+            val choices = arrayOf("Arka plan müziği seç", "Seslendirme seç")
+            android.app.AlertDialog.Builder(this).setTitle("Ses dosyası").setItems(choices) { _, which ->
+                if (which == 0) pickMusic() else pickVoice()
+            }.show()
+        }
+        row.addView(media, LinearLayout.LayoutParams(0, -1, 1f).apply { marginEnd = 7 })
+        row.addView(music, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = 7 })
+        page.addView(row)
+        gap(page, 18)
+
+        page.addView(label("PROJE ŞABLONLARI", 17f, white, true))
+        gap(page, 8)
+        val templates = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val templateScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+        fun template(name: String, desc: String, emoji: String, title: String, closing: String, colors: IntArray) {
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(14, 14, 14, 14)
+                background = gradient(colors, 18f)
+                setOnClickListener {
+                    titleInput.setText(title)
+                    closingInput.setText(closing)
+                    status.text = name + " şablonu seçildi. Şimdi fotoğraf ve seslerini ekle."
+                    scroll.smoothScrollTo(0, titleInput.top + 900)
+                }
+            }
+            item.addView(label(emoji, 30f, white, true))
+            item.addView(label(name, 14f, white, true))
+            item.addView(label(desc, 10f, 0xFFE7EBFF.toInt()))
+            templates.addView(item, LinearLayout.LayoutParams(150, 118).apply { marginEnd = 9 })
+        }
+        template("Düzce Anma", "Anma videosu", "🕯", "12 Kasım 1999 – Düzce", "UNUTMADIK, UNUTMAYACAĞIZ.", intArrayOf(0xFF303B59.toInt(), 0xFF111827.toInt()))
+        template("10 Kasım", "Saygı ve anma", "🇹🇷", "10 Kasım Anma Videosu", "Saygı, özlem ve minnetle…", intArrayOf(0xFF9B1C32.toInt(), 0xFF3A1020.toInt()))
+        template("Doğa & Gezi", "Anılarını paylaş", "🏞", "Doğa ve Gezi", "Biriktirdiğimiz güzel anılara…", intArrayOf(0xFF087A65.toInt(), 0xFF123F48.toInt()))
+        template("Ürün Tanıtımı", "Markanı öne çıkar", "🎬", "Ürün Tanıtım Videosu", "Detaylarda farkı keşfedin.", intArrayOf(0xFF9A4D0B.toInt(), 0xFF51220D.toInt()))
+        templateScroll.addView(templates)
+        page.addView(templateScroll, LinearLayout.LayoutParams(-1, 122))
+        gap(page, 18)
+
+        val editor = panel()
+        editor.addView(label("PROJE BİLGİLERİ", 14f, 0xFFFFC45D.toInt(), true))
+        gap(editor, 8)
         titleInput = EditText(this).apply {
-            hint = "Örn. Düzce Anma Videosu"; setTextColor(-1); setHintTextColor(0xFF9CA8C7.toInt())
-            setText(prefs.getString("title", "")); textSize = 15f
-            background = rounded(0xFF242C49.toInt(), 14f); setPadding(15, 13, 15, 13)
+            hint = "Proje başlığı"
+            setTextColor(white); setHintTextColor(muted); textSize = 14f
+            setText(prefs.getString("title", ""))
+            background = gradient(intArrayOf(0xFF263456.toInt(), 0xFF1B2947.toInt()), 13f)
+            setPadding(14, 12, 14, 12)
         }
-        projectCard.addView(titleInput, LinearLayout.LayoutParams(-1, -2))
-        addGap(projectCard, 12)
-        projectCard.addView(text("Kapanış mesajı", 15f, 0xFFF4F5FF.toInt(), true))
+        editor.addView(titleInput, LinearLayout.LayoutParams(-1, -2))
+        gap(editor, 8)
         closingInput = EditText(this).apply {
-            hint = "Videonun sonunda görünecek yazı"; setTextColor(-1); setHintTextColor(0xFF9CA8C7.toInt())
-            setText(prefs.getString("closing", "")); textSize = 15f
-            background = rounded(0xFF242C49.toInt(), 14f); setPadding(15, 13, 15, 13)
+            hint = "Kapanış mesajı"
+            setTextColor(white); setHintTextColor(muted); textSize = 14f
+            setText(prefs.getString("closing", ""))
+            background = gradient(intArrayOf(0xFF263456.toInt(), 0xFF1B2947.toInt()), 13f)
+            setPadding(14, 12, 14, 12)
         }
-        projectCard.addView(closingInput, LinearLayout.LayoutParams(-1, -2))
-        val saveWatcher = object : TextWatcher {
+        editor.addView(closingInput, LinearLayout.LayoutParams(-1, -2))
+        val watcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) { saveLocal() }
         }
-        titleInput.addTextChangedListener(saveWatcher)
-        closingInput.addTextChangedListener(saveWatcher)
-        page.addView(projectCard)
-        addGap(page)
+        titleInput.addTextChangedListener(watcher)
+        closingInput.addTextChangedListener(watcher)
+        page.addView(editor)
+        gap(page, 12)
 
-        fun mediaCard(title: String, desc: String, buttonText: String, info: TextView, run: () -> Unit) {
-            val c = card()
-            c.addView(text(title, 16f, 0xFFFFFFFF.toInt(), true))
-            addGap(c, 5)
-            c.addView(text(desc, 12f, 0xFF9CA8C7.toInt()))
-            addGap(c, 10)
-            c.addView(info.apply { textSize = 12f; setTextColor(0xFF75E0C0.toInt()) })
-            addGap(c, 10)
-            c.addView(action(buttonText, intArrayOf(0xFF2878F0.toInt(), 0xFF19B6C8.toInt()), run))
-            page.addView(c)
-            addGap(page)
-        }
-        photoInfo = text("Henüz görsel eklenmedi", 12f, 0xFF75E0C0.toInt())
-        musicInfo = text("İsteğe bağlı • Henüz seçilmedi", 12f, 0xFF75E0C0.toInt())
-        voiceInfo = text("İsteğe bağlı • Henüz seçilmedi", 12f, 0xFF75E0C0.toInt())
-        mediaCard("01  GÖRSELLERİNİ EKLE", "Fotoğraf ve video sahnelerini seçerek hikâyeni oluştur.", "＋  MEDYA SEÇ", photoInfo, ::pickPhotos)
-        mediaCard("02  MÜZİĞİNİ BELİRLE", "Arka plan müziğiyle videona atmosfer kat.", "♫  MÜZİK SEÇ", musicInfo, ::pickMusic)
-        mediaCard("03  SESLENDİRME EKLE", "Kendi ses kaydını veya anlatımını kullan.", "🎙  SES DOSYASI SEÇ", voiceInfo, ::pickVoice)
+        val mediaPanel = panel()
+        photoInfo = label("Henüz fotoğraf seçilmedi", 12f, 0xFF7BE3C4.toInt())
+        musicInfo = label("Müzik seçilmedi", 12f, 0xFF7BE3C4.toInt())
+        voiceInfo = label("Seslendirme seçilmedi", 12f, 0xFF7BE3C4.toInt())
+        mediaPanel.addView(label("MEDYA DURUMU", 14f, 0xFFFFC45D.toInt(), true))
+        gap(mediaPanel, 6)
+        mediaPanel.addView(photoInfo)
+        mediaPanel.addView(musicInfo)
+        mediaPanel.addView(voiceInfo)
+        page.addView(mediaPanel)
+        gap(page, 14)
 
-        val packageCard = card()
-        packageCard.addView(text("HAZIR PROJE PAKETİ", 15f, 0xFFFFB86B.toInt(), true))
-        addGap(packageCard, 5)
-        packageCard.addView(text("Başka bir konuda hazırlanmış projeyi tek ZIP dosyasıyla içe aktar. Medyalar paketin içinden otomatik yerleştirilir.", 12f, 0xFFB8C2DD.toInt()))
-        addGap(packageCard, 12)
-        packageCard.addView(action("⇩  PROJE PAKETİ İÇE AKTAR", intArrayOf(0xFF7856E8.toInt(), 0xFFB34BCB.toInt())) { importProject() })
-        addGap(packageCard, 8)
-        packageCard.addView(action("⇧  PROJE PAKETİ DIŞA AKTAR", intArrayOf(0xFF34466F.toInt(), 0xFF536A9B.toInt())) { exportProject() })
-        page.addView(packageCard)
-        addGap(page, 18)
-
-        val render = action("▶   VİDEOYU OLUŞTUR", intArrayOf(0xFFFF8A00.toInt(), 0xFFE52E71.toInt()), ::createVideo).apply {
-            textSize = 17f; minHeight = 62
-        }
-        page.addView(render)
-        addGap(page, 10)
+        page.addView(button("▶   VİDEOYU OLUŞTUR", intArrayOf(0xFFFFB000.toInt(), 0xFFE52E71.toInt())) { createVideo() })
+        gap(page, 9)
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100; progress = 0
-            progressTintList = android.content.res.ColorStateList.valueOf(0xFFFF8A00.toInt())
+            max = 100
+            progress = 0
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFFFFB000.toInt())
         }
         page.addView(progressBar, LinearLayout.LayoutParams(-1, 9))
-        addGap(page, 7)
-        status = text("Stüdyo hazır. Önce görsellerini ekle veya hazır bir proje paketi aç.", 12f, 0xFFB8C2DD.toInt())
+        gap(page, 7)
+        status = label("Stüdyo hazır. Bir şablon seç veya yeni proje başlat.", 12f, muted)
         page.addView(status)
-        addGap(page, 8)
-        page.addView(action("İŞLEMİ İPTAL ET", intArrayOf(0xFF39415D.toInt(), 0xFF252C44.toInt()), ::cancelVideo))
-        addGap(page, 18)
-        val footer = text("KANATIX STUDIO  •  FİKRİNİ GÖRÜNTÜYE DÖNÜŞTÜR", 10f, 0xFF7885A8.toInt(), true)
-        footer.gravity = Gravity.CENTER
-        page.addView(footer)
+        gap(page, 8)
+        page.addView(button("İŞLEMİ İPTAL ET", intArrayOf(0xFF39415D.toInt(), 0xFF252C44.toInt())) { cancelVideo() })
+        gap(page, 16)
+        val foot = label("KANATIX  •  HAYAL ET. OLUŞTUR. PAYLAŞ.", 10f, 0xFF8B9CC5.toInt(), true)
+        foot.gravity = Gravity.CENTER
+        page.addView(foot)
 
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(0xFF0C0F1F.toInt())
-            addView(page)
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(8, 8, 8, 8)
+            background = gradient(intArrayOf(0xFF101A35.toInt(), 0xFF071126.toInt()), 0f)
         }
-        setContentView(scroll)
+        listOf("⌂\nAna Sayfa", "▧\nMedya", "▶\nOluştur", "ⓘ\nHakkında").forEachIndexed { index, caption ->
+            val item = label(caption, 11f, if (index == 0) 0xFFFFBD22.toInt() else 0xFFDCE5FF.toInt(), true).apply {
+                gravity = Gravity.CENTER
+                setPadding(4, 5, 4, 5)
+                setOnClickListener {
+                    when (index) {
+                        1 -> pickPhotos()
+                        2 -> createVideo()
+                        3 -> android.app.AlertDialog.Builder(this@MainActivity).setTitle("Kanatix Video Oluşturucu")
+                            .setMessage("Fotoğraf, müzik ve metinlerle kendi videolarını hazırla. Projelerini ZIP paketi olarak saklayıp yeniden açabilirsin.")
+                            .setPositiveButton("Tamam", null).show()
+                        else -> scroll.smoothScrollTo(0, 0)
+                    }
+                }
+            }
+            nav.addView(item, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        root.addView(nav, LinearLayout.LayoutParams(-1, -2))
+        setContentView(root)
         restoreProject()
         window.decorView.systemUiVisibility = 0
     }
