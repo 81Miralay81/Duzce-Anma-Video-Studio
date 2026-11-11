@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private var progressTask: Runnable? = null
     private var pendingJson: String? = null
     private var exporting = false
+    private var cancelRequested = false
     private val prefs by lazy { getSharedPreferences("project", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -202,6 +203,8 @@ class MainActivity : Activity() {
         if (exporting) return
         if (photos.isEmpty()) { status.text = "Önce en az bir fotoğraf seç."; return }
         exporting = true
+        cancelRequested = false
+        progressBar.progress = 0
         status.text = "Video hazırlanıyor… Bu işlem fotoğraf sayısına ve telefon hızına göre sürebilir."
         val totalMs = 45_000L
         val cardMs = 4_000L
@@ -232,6 +235,7 @@ class MainActivity : Activity() {
                     exporting = false
                     progressTask?.let { mainHandler.removeCallbacks(it) }
                     progressBar.progress = 100
+                    transformer = null
                     runCatching { saveVideoToGallery(output) }
                         .onSuccess { status.text = "MP4 hazır. Galeriye kaydedildi: Düzce Anma.mp4" }
                         .onFailure { status.text = "Video oluştu ancak galeriye kaydedilemedi: ${it.message}" }
@@ -242,7 +246,9 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     exporting = false
                     progressTask?.let { mainHandler.removeCallbacks(it) }
-                    status.text = "Video oluşturma hatası: ${exportException.message}"
+                    status.text = if (cancelRequested) "Video oluşturma iptal edildi."
+                        else "Video oluşturma hatası: ${exportException.message}"
+                    transformer = null
                 }
                 output.delete()
             }
@@ -267,7 +273,7 @@ class MainActivity : Activity() {
             progressTask = task
             mainHandler.post(task)
         } catch (e: Exception) {
-            exporting = false; status.text = "Başlatılamadı: ${e.message}"; output.delete()
+            exporting = false; transformer = null; status.text = "Başlatılamadı: ${e.message}"; output.delete()
         }
     }
 
@@ -276,8 +282,10 @@ class MainActivity : Activity() {
             status.text = "Devam eden video oluşturma işlemi yok."
             return
         }
+        cancelRequested = true
         runCatching { transformer?.cancel() }
         exporting = false
+        transformer = null
         progressTask?.let { mainHandler.removeCallbacks(it) }
         outputFile?.delete()
         status.text = "Video oluşturma iptal edildi."
