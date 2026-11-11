@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,6 +38,16 @@ jobs:
           "${{ steps.sdk.outputs.path }}" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
+      - name: Publish direct APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.5.${{ github.run_number }}"
+          gh release create "$TAG" app/build/outputs/apk/debug/app-debug.apk \
+            --repo "${{ github.repository }}" \
+            --title "Kanatix Video Oluşturucu ${TAG}" \
+            --notes "Android APK. ZIP arşivi değildir; doğrudan APK dosyasını indirin." \
+            --latest
       - uses: actions/upload-artifact@v4
         with:
           name: Kanatix-Video-Creator-debug-apk
