@@ -8,6 +8,7 @@ import android.media.MediaMetadataRetriever
 import android.graphics.Bitmap
 import android.widget.*
 import android.view.ViewGroup
+import android.content.res.ColorStateList
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -49,11 +50,16 @@ class SceneStudioActivity : Activity() {
         })
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 15; progress = 0 }
         root.addView(progress, LinearLayout.LayoutParams(-1, 12))
-        status = TextView(this).apply { text = "Fotoğraf sayısı: ${photos.size}. En fazla 5 fotoğraf kullanılacak."; setTextColor(-1); setPadding(0,18,0,18) }
+        status = TextView(this).apply { text = "SEÇİLEN FOTOĞRAF: ${photos.size}/5\n\nAşağıdaki sarı düğmeye dokunarak üretimi başlat."; textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22) }
         root.addView(status)
         start = Button(this).apply {
-            text = "15 SAHNELİ ÜRETİMİ BAŞLAT"
+            text = "▶  15 SAHNELİ ÜRETİMİ BAŞLAT"
             isAllCaps = false
+            textSize = 16f
+            setTextColor(0xFF071126.toInt())
+            backgroundTintList = ColorStateList.valueOf(0xFFFFC45D.toInt())
+            minHeight = 64
+            stateListAnimator = null
             setOnClickListener {
                 if (photos.size != 5) {
                     status.text = "Bu üretim akışı için tam 5 fotoğraf seçmelisin. Şu an: ${photos.size}"
@@ -62,7 +68,12 @@ class SceneStudioActivity : Activity() {
         }
         root.addView(start, LinearLayout.LayoutParams(-1, 56))
         val cancel = Button(this).apply {
-            text = "İŞLEMİ İPTAL ET"; isAllCaps = false
+            text = "İŞLEMİ İPTAL ET"
+            isAllCaps = false
+            textSize = 14f
+            setTextColor(0xFFFFFFFF.toInt())
+            backgroundTintList = ColorStateList.valueOf(0xFF39465E.toInt())
+            minHeight = 56
             setOnClickListener { cancelled = true; status.text = "İptal isteği alındı; devam eden model isteği bitince duracak." }
         }
         root.addView(cancel, LinearLayout.LayoutParams(-1, 52))
