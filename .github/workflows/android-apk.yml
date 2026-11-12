@@ -36,6 +36,19 @@ jobs:
         run: |
           yes | "${{ steps.sdk.outputs.path }}" --licenses >/dev/null || true
           "${{ steps.sdk.outputs.path }}" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Configure persistent APK signing
+        env:
+          KANATIX_KEYSTORE_BASE64: ${{ secrets.KANATIX_KEYSTORE_BASE64 }}
+          KANATIX_SIGNING_PASSWORD: ${{ secrets.KANATIX_SIGNING_PASSWORD }}
+        run: |
+          if [ -n "$KANATIX_KEYSTORE_BASE64" ] && [ -n "$KANATIX_SIGNING_PASSWORD" ]; then
+            echo "$KANATIX_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/kanatix-release.jks"
+            echo "KANATIX_SIGNING_STORE_FILE=$RUNNER_TEMP/kanatix-release.jks" >> "$GITHUB_ENV"
+            echo "KANATIX_SIGNING_PASSWORD=$KANATIX_SIGNING_PASSWORD" >> "$GITHUB_ENV"
+            echo "Persistent KANATIX signing is enabled."
+          else
+            echo "Persistent signing secrets are not configured; using temporary debug signing."
+          fi
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Publish direct APK download
