@@ -183,11 +183,8 @@ class SceneStudioActivity : Activity() {
             put(true)
             put(6)
             put("UniPCMultistep")
-            put(6.0)
+            put(3.0)
             put(24)
-            put("4x-UltraSharp")
-            put(1.0)
-            put(true)
             put(false)
             put(true)
         }
