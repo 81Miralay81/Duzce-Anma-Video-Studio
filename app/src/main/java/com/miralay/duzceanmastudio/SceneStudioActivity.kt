@@ -364,10 +364,12 @@ class SceneStudioActivity : Activity() {
             val safeDetail = detail?.take(1000) ?: "Sunucu ayrıntı vermedi."
             error("Ücretsiz Colab üretim hatası (HTTP $code): $safeDetail")
         }
+        val responseContentType = connection.contentType ?: "bilinmiyor"
+        val responseLength = connection.getHeaderField("Content-Length") ?: "bilinmiyor"
         val file = File(outputDir, "Kanatix-scene-${(index + 1).toString().padStart(2, '0')}.mp4")
         connection.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
         connection.disconnect()
-        validateMotionMp4(file)
+        validateMotionMp4(file, responseContentType, responseLength)
         return file
     }
 
@@ -496,11 +498,21 @@ class SceneStudioActivity : Activity() {
         return JSONArray(body).optString(0).takeIf { it.isNotBlank() } ?: error("Yükleme yolu boş.")
     }
 
-    private fun validateMotionMp4(file: File) {
-        require(file.length() > 2048L) { "Model geçerli video dosyası döndürmedi." }
-        val header = ByteArray(12)
-        FileInputStream(file).use { require(it.read(header) >= 12) { "Eksik MP4." } }
-        require(String(header, 4, 4, Charsets.US_ASCII) == "ftyp") { "Model MP4 yerine başka dosya döndürdü." }
+    private fun validateMotionMp4(file: File, contentType: String = "bilinmiyor", contentLength: String = "bilinmiyor") {
+        require(file.length() > 2048L) {
+            "Model geçerli video dosyası döndürmedi. Boyut=${file.length()} bayt; Content-Type=$contentType"
+        }
+        val header = ByteArray(64)
+        val read = FileInputStream(file).use { it.read(header) }
+        require(read >= 12) { "Eksik MP4. Okunan=$read bayt; Content-Type=$contentType" }
+        val signature = header.take(16).joinToString(" ") { "%02X".format(it) }
+        val preview = header.take(read).map { b ->
+            val value = b.toInt() and 0xFF
+            if (value in 32..126) value.toChar() else '.'
+        }.joinToString("").take(64)
+        require(String(header, 4, 4, Charsets.US_ASCII) == "ftyp") {
+            "Model MP4 yerine başka dosya döndürdü. Content-Type=$contentType; Content-Length=$contentLength; ilk baytlar=$signature; içerik=$preview"
+        }
         val r = MediaMetadataRetriever()
         try {
             r.setDataSource(file.absolutePath)
