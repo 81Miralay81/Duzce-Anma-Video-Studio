@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.widget.*
 import android.view.ViewGroup
 import android.content.res.ColorStateList
+import android.content.Intent
 import android.content.ClipboardManager
 import android.content.ClipData
 import org.json.JSONArray
@@ -219,7 +220,25 @@ class SceneStudioActivity : Activity() {
                     errorDetails.text = report
                     errorDetails.visibility = android.view.View.VISIBLE
                     copyErrorButton.visibility = android.view.View.VISIBLE
-                    status.text = "ÜRETİM DURDU · ${error.message ?: error.javaClass.simpleName}\nTamamlanan: ${clips.size}/${photos.size * sceneCount}\nAyrıntılı hata aşağıda. Kopyala butonuna basıp raporu sohbete gönder."
+                    status.text = "ÜRETİM DURDU · ${error.message ?: error.javaClass.simpleName}\nTamamlanan: ${clips.size}/${photos.size * sceneCount}"
+                    android.app.AlertDialog.Builder(this@SceneStudioActivity)
+                        .setTitle("KANATIX ÜRETİM HATASI")
+                        .setMessage("Hata: ${error.message ?: error.javaClass.simpleName}\n\nTamamlanan klip: ${clips.size}/${photos.size * sceneCount}\n\nAyrıntılı rapor hazır. Aşağıdan kopyalayabilir veya paylaşabilirsin.")
+                        .setPositiveButton("HATA RAPORUNU KOPYALA") { _, _ ->
+                            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("KANATIX hata raporu", lastErrorReport))
+                            Toast.makeText(this@SceneStudioActivity, "Hata raporu kopyalandı.", Toast.LENGTH_LONG).show()
+                        }
+                        .setNeutralButton("RAPORU PAYLAŞ") { _, _ ->
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "KANATIX üretim hata raporu")
+                                putExtra(Intent.EXTRA_TEXT, lastErrorReport)
+                            }
+                            startActivity(Intent.createChooser(share, "Hata raporunu paylaş"))
+                        }
+                        .setNegativeButton("KAPAT", null)
+                        .show()
                 }
             }
         }.start()
