@@ -50,33 +50,54 @@ class SceneStudioActivity : Activity() {
         })
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 15; progress = 0 }
         root.addView(progress, LinearLayout.LayoutParams(-1, 12))
-        status = TextView(this).apply { text = "SEÇİLEN FOTOĞRAF: ${photos.size}/5\n\nAşağıdaki sarı düğmeye dokunarak üretimi başlat."; textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22) }
+        status = TextView(this).apply { text = "SEÇİLEN FOTOĞRAF: ${photos.size}/5\n\nÜretimi başlatmak için BAŞLAT düğmesine dokun."; textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22) }
         root.addView(status)
+        val actionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            weightSum = 2f
+        }
         start = Button(this).apply {
-            text = "▶  15 SAHNELİ ÜRETİMİ BAŞLAT"
+            text = "▶  BAŞLAT"
             isAllCaps = false
             textSize = 16f
-            setTextColor(0xFF071126.toInt())
-            backgroundTintList = ColorStateList.valueOf(0xFFFFC45D.toInt())
-            minHeight = 64
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            backgroundTintList = ColorStateList.valueOf(0xFF176B3A.toInt())
+            minHeight = 68
+            elevation = 8f
             stateListAnimator = null
+            setPadding(8, 8, 8, 8)
             setOnClickListener {
                 if (photos.size != 5) {
                     status.text = "Bu üretim akışı için tam 5 fotoğraf seçmelisin. Şu an: ${photos.size}"
                 } else runBatch(photos)
             }
         }
-        root.addView(start, LinearLayout.LayoutParams(-1, 56))
+        actionRow.addView(start, LinearLayout.LayoutParams(0, 68, 1f).apply {
+            rightMargin = 8
+        })
         val cancel = Button(this).apply {
-            text = "İŞLEMİ İPTAL ET"
+            text = "■  İPTAL"
             isAllCaps = false
-            textSize = 14f
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(0xFFFFFFFF.toInt())
-            backgroundTintList = ColorStateList.valueOf(0xFF39465E.toInt())
-            minHeight = 56
-            setOnClickListener { cancelled = true; status.text = "İptal isteği alındı; devam eden model isteği bitince duracak." }
+            backgroundTintList = ColorStateList.valueOf(0xFFB3261E.toInt())
+            minHeight = 68
+            elevation = 8f
+            stateListAnimator = null
+            setPadding(8, 8, 8, 8)
+            setOnClickListener {
+                cancelled = true
+                status.text = "İptal isteği alındı; devam eden model isteği bitince duracak."
+            }
         }
-        root.addView(cancel, LinearLayout.LayoutParams(-1, 52))
+        actionRow.addView(cancel, LinearLayout.LayoutParams(0, 68, 1f).apply {
+            leftMargin = 8
+        })
+        root.addView(actionRow, LinearLayout.LayoutParams(-1, 76).apply {
+            topMargin = 12
+        })
         setContentView(ScrollView(this).apply { addView(root) })
     }
 
