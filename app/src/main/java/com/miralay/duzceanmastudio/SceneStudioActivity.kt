@@ -148,9 +148,25 @@ class SceneStudioActivity : Activity() {
             put("mime_type", "image/jpeg"); put("meta", JSONObject().put("_type", "gradio.FileData"))
         }
         val args = JSONArray().apply {
-            put(fileData); put(JSONObject.NULL); put(prompt); put(6)
+            put(fileData)
+            put(JSONObject.NULL)
+            put(prompt)
+            put(6)
             put("static image, frozen frame, blurry, deformed anatomy, extra limbs, duplicate people, modern objects, fantasy, sudden movement, dragging injured people")
-            put(4.0); put(1); put(1); put(42); put(true); put(6); put("UniPCMultistep"); put(3.0); put(16); put(false); put(true)
+            put(4.0)
+            put(1.0)
+            put(1.0)
+            put(42)
+            put(true)
+            put(6)
+            put("UniPCMultistep")
+            put(6.0)
+            put(24)
+            put("4x-UltraSharp")
+            put(1.0)
+            put(true)
+            put(false)
+            put(true)
         }
         val request = (URL("$base/gradio_api/call/generate_video").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; connectTimeout = 30000; readTimeout = 30000; doOutput = true
