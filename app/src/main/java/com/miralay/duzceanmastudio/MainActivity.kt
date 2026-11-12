@@ -68,8 +68,13 @@ class MainActivity : Activity() {
             if (completedId == updateDownloadId) {
                 val manager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
                 val uri = manager.getUriForDownloadedFile(completedId)
-                if (uri != null) installDownloadedUpdate(uri)
-                else status.text = "Güncelleme dosyası indirilemedi. Bağlantıyı kontrol edip tekrar dene."
+                if (uri != null) {
+                    prefs.edit().remove("update_download_id").apply()
+                    installDownloadedUpdate(uri)
+                } else {
+                    prefs.edit().remove("update_download_id").apply()
+                    status.text = "Güncelleme dosyası indirilemedi. Bağlantıyı kontrol edip tekrar dene."
+                }
             }
         }
     }
@@ -354,11 +359,12 @@ class MainActivity : Activity() {
         }
         updateReceiverRegistered = true
         window.decorView.systemUiVisibility = 0
+        mainHandler.postDelayed({ if (!isFinishing) checkForUpdates(true) }, 1800)
     }
 
 
 
-    private fun checkForUpdates() {
+    private fun checkForUpdates(silent: Boolean = false) {
         status.text = "Yeni sürüm kontrol ediliyor…"
         Thread {
             val result = runCatching {
@@ -395,7 +401,7 @@ class MainActivity : Activity() {
                 result.onSuccess { (remote, local, asset) ->
                     if (compareVersions(remote, local) <= 0) {
                         status.text = "Uygulama güncel. Kurulu sürüm: $local"
-                        android.app.AlertDialog.Builder(this).setTitle("KANATIX güncel")
+                        if (!silent) android.app.AlertDialog.Builder(this).setTitle("KANATIX güncel")
                             .setMessage("Kurulu sürüm: $local\nEn son yayımlanan sürüm: $remote")
                             .setPositiveButton("Tamam", null).show()
                     } else {
@@ -410,8 +416,8 @@ class MainActivity : Activity() {
                             .show()
                     }
                 }.onFailure {
-                    status.text = "Güncelleme kontrolü başarısız: ${it.message}"
-                    android.app.AlertDialog.Builder(this).setTitle("Güncelleme kontrol edilemedi")
+                    status.text = if (silent) "Güncelleme kontrolü şu an yapılamadı." else "Güncelleme kontrolü başarısız: ${it.message}"
+                    if (!silent) android.app.AlertDialog.Builder(this).setTitle("Güncelleme kontrol edilemedi")
                         .setMessage(it.message ?: "Bilinmeyen bağlantı hatası")
                         .setPositiveButton("Tamam", null).show()
                 }
@@ -440,6 +446,7 @@ class MainActivity : Activity() {
                 .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName)
             val manager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
             updateDownloadId = manager.enqueue(request)
+            prefs.edit().putLong("update_download_id", updateDownloadId).apply()
             status.text = "KANATIX $version indiriliyor… Bildirim alanından ilerlemeyi görebilirsin."
             Toast.makeText(this, "Güncelleme indiriliyor", Toast.LENGTH_LONG).show()
         }.onFailure {
@@ -476,7 +483,27 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (pendingUpdateUri != null && packageManager.canRequestPackageInstalls()) launchUpdateInstaller()
+        if (pendingUpdateUri != null && packageManager.canRequestPackageInstalls()) {
+            launchUpdateInstaller()
+            return
+        }
+        val savedId = prefs.getLong("update_download_id", -1L)
+        if (savedId > 0L) {
+            val manager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+            val query = android.app.DownloadManager.Query().setFilterById(savedId)
+            manager.query(query)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val column = cursor.getColumnIndex(android.app.DownloadManager.COLUMN_STATUS)
+                    if (column >= 0 && cursor.getInt(column) == android.app.DownloadManager.STATUS_SUCCESSFUL) {
+                        val uri = manager.getUriForDownloadedFile(savedId)
+                        prefs.edit().remove("update_download_id").apply()
+                        if (uri != null) installDownloadedUpdate(uri)
+                    } else if (column >= 0 && cursor.getInt(column) == android.app.DownloadManager.STATUS_FAILED) {
+                        prefs.edit().remove("update_download_id").apply()
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
