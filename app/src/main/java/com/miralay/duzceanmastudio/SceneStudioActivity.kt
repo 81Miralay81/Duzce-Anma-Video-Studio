@@ -37,7 +37,7 @@ class SceneStudioActivity : Activity() {
         val photos = intent.getStringArrayListExtra("photos") ?: arrayListOf()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 28, 24, 24)
+            setPadding(12, 24, 12, 24)
             setBackgroundColor(0xFF071126.toInt())
         }
         root.addView(TextView(this).apply {
@@ -62,8 +62,9 @@ class SceneStudioActivity : Activity() {
             textSize = 16f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(0xFFFFFFFF.toInt())
-            backgroundTintList = ColorStateList.valueOf(0xFF176B3A.toInt())
-            minHeight = 68
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 22f; setColor(0xFF168447.toInt()) }
+            minWidth = 0
+            minHeight = 76
             elevation = 8f
             stateListAnimator = null
             setPadding(8, 8, 8, 8)
@@ -73,8 +74,8 @@ class SceneStudioActivity : Activity() {
                 } else runBatch(photos)
             }
         }
-        actionRow.addView(start, LinearLayout.LayoutParams(0, 68, 1f).apply {
-            rightMargin = 8
+        actionRow.addView(start, LinearLayout.LayoutParams(0, 76, 1f).apply {
+            rightMargin = 4
         })
         val cancel = Button(this).apply {
             text = "■  İPTAL"
@@ -82,8 +83,9 @@ class SceneStudioActivity : Activity() {
             textSize = 16f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(0xFFFFFFFF.toInt())
-            backgroundTintList = ColorStateList.valueOf(0xFFB3261E.toInt())
-            minHeight = 68
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 22f; setColor(0xFFD12E2E.toInt()) }
+            minWidth = 0
+            minHeight = 76
             elevation = 8f
             stateListAnimator = null
             setPadding(8, 8, 8, 8)
@@ -92,10 +94,10 @@ class SceneStudioActivity : Activity() {
                 status.text = "İptal isteği alındı; devam eden model isteği bitince duracak."
             }
         }
-        actionRow.addView(cancel, LinearLayout.LayoutParams(0, 68, 1f).apply {
-            leftMargin = 8
+        actionRow.addView(cancel, LinearLayout.LayoutParams(0, 76, 1f).apply {
+            leftMargin = 4
         })
-        root.addView(actionRow, LinearLayout.LayoutParams(-1, 76).apply {
+        root.addView(actionRow, LinearLayout.LayoutParams(-1, 84).apply {
             topMargin = 12
         })
         setContentView(ScrollView(this).apply { addView(root) })
@@ -198,13 +200,18 @@ class SceneStudioActivity : Activity() {
         val body = (if (code in 200..299) request.inputStream else request.errorStream).bufferedReader().use { it.readText() }
         request.disconnect()
         if (code !in 200..299) error("Wan işi kabul etmedi ($code): $body")
-        val event = JSONObject(body).optString("event_id")
-        if (event.isBlank()) error("Model iş numarası döndürmedi.")
+        val event = JSONObject(body).optString("event_id").takeIf { it.isNotBlank() && it != "null" }
+            ?: error("Wan sunucusu görev numarası döndürmedi. Yanıt: ${body.take(500)}")
         runOnUiThread { status.text = "Wan 2.2 klip ${index + 1}/15 üretiyor…" }
         val stream = (URL("$base/gradio_api/call/generate_video/$event").openConnection() as HttpURLConnection).apply {
             connectTimeout = 30000; readTimeout = 300000; setRequestProperty("Accept", "text/event-stream")
         }
-        if (stream.responseCode !in 200..299) error("Model sonuç akışı açılamadı.")
+        val streamCode = stream.responseCode
+        if (streamCode !in 200..299) {
+            val detail = runCatching { stream.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            stream.disconnect()
+            error("Wan sonuç akışı açılamadı (HTTP $streamCode). ${detail?.take(400) ?: "Sunucu ayrıntı vermedi."}")
+        }
         var eventName = ""; val data = mutableListOf<String>(); var resultUrl: String? = null
         stream.inputStream.bufferedReader().useLines { lines ->
             for (line in lines) {
@@ -220,7 +227,11 @@ class SceneStudioActivity : Activity() {
                                 ?: obj?.optString("path")?.takeIf { it.isNotBlank() }?.let { "$base/gradio_api/file=$it" }
                                 ?: arr.optString(0).takeIf { it.startsWith("http") }
                             if (resultUrl != null) break
-                        } else if (eventName == "error") error("Wan hata verdi: $raw")
+                         } else if (eventName == "error") {
+                            val detail = raw.takeIf { it.isNotBlank() && it != "null" && it != "[]" && it != "undefined" }
+                            error(if (detail != null) "Wan 2.2 hata verdi: ${detail.take(700)}"
+                                else "Wan 2.2 sunucusu ayrıntısız hata döndürdü (null). Ücretsiz GPU alanı meşgul, uyuyor veya isteği işleyememiş olabilir. Bir süre sonra yeniden dene.")
+                        }
                         eventName = ""; data.clear()
                     }
                 }
@@ -228,7 +239,7 @@ class SceneStudioActivity : Activity() {
         }
         stream.disconnect()
         if (cancelled) error("İptal edildi.")
-        val url = resultUrl ?: error("Model video dosyası adresi döndürmedi.")
+        val url = resultUrl ?: error("Wan işi tamamlandı ancak video dosyası adresi dönmedi. Sunucu boş/null sonuç verdi; ücretsiz model tarafındaki üretim tamamlanmamış olabilir.")
         val file = File(outputDir, "Kanatix-scene-${(index + 1).toString().padStart(2,'0')}.mp4")
         URL(url).openStream().use { input -> file.outputStream().use { input.copyTo(it) } }
         validateMotionMp4(file)
