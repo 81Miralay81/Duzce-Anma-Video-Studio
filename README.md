@@ -38,5 +38,24 @@ media/
 ## Telif ve içerik doğruluğu
 Arşiv fotoğraflarını yalnızca kullanım izni/lisansı uygunsa kullanın. Yapay zekâ ile üretilen sahneleri gerçek arşiv fotoğrafı gibi göstermeyin; videoda açıkça **CANLANDIRMA** olarak belirtin.
 
+
+## Ücretsiz Google Colab Wan 2.2 üretimi
+
+KANATIX sahne stüdyosu artık ücretli GPU servisi yerine kullanıcı tarafından başlatılan ücretsiz Colab oturumuna bağlanabilir.
+
+1. [KANATIX Colab notebook'unu açın](https://colab.research.google.com/github/81Miralay81/Duzce-Anma-Video-Studio/blob/main/colab/KANATIX_Colab_Free_GPU.ipynb).
+2. Colab'da **Çalışma zamanı → Çalışma zamanı türünü değiştir → T4 GPU** seçeneğini, sunuluyorsa seçin.
+3. Notebook hücrelerini sırayla çalıştırın. İlk çalıştırma model ve bağımlılıkları indirir.
+4. Google Drive bağlama iznini verin.
+5. Son hücrenin gösterdiği HTTPS API adresini ve erişim anahtarını Android uygulamasındaki **Ücretsiz Colab bağlantısını ayarla** bölümüne girin.
+6. Colab oturumunu üretim boyunca açık tutun. Oturum yeniden başladığında yeni tünel adresi ve erişim anahtarı oluşur; APK ayarlarını güncelleyin.
+
+### Ücretsiz kullanımın sınırları
+- Google Colab ücretsiz GPU erişimi garanti etmez; GPU tipi, kota ve oturum süresi değişebilir.
+- Notebook, Wan 2.2 I2V 14B Q4_K_M GGUF + LightX2V ile 480p dikey kısa klip ayarlarını kullanır. T4'te üretim uzun sürebilir; VRAM veya kota hatası yaşanabilir.
+- Üretilen MP4 dosyaları Google Drive'da `MyDrive/Kanatix/ColabJobs` klasörüne yedeklenir.
+- Colab kapandığında API de kapanır. Bu yöntem 7/24 sunucu değildir ve ücretli hizmet kullanmaz.
+- API, Cloudflare Quick Tunnel üzerinden HTTPS ile açılır ve rastgele erişim anahtarı ister. Erişim anahtarını kimseyle paylaşmayın.
+
 ## APK derlemesi
 GitHub Actions, ana dala her gönderimde ücretsiz debug APK üretir. Artifact adı: `Kanatix-Video-Creator-debug-apk`. APK'nın gerçek cihazda denenmesi gerekir; CI başarısı tek başına cihaz uyumluluğunu garanti etmez.
