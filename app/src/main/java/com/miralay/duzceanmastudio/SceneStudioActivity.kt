@@ -219,10 +219,30 @@ class SceneStudioActivity : Activity() {
                     line.isBlank() && data.isNotEmpty() -> {
                         val raw = data.joinToString("\n")
                         if (eventName == "complete") {
-                            val arr = JSONArray(raw); val obj = arr.optJSONObject(0)
-                            resultUrl = obj?.optString("url")?.takeIf { it.startsWith("http") }
-                                ?: obj?.optString("path")?.takeIf { it.isNotBlank() }?.let { "$base/gradio_api/file=$it" }
-                                ?: arr.optString(0).takeIf { it.startsWith("http") }
+                            val arr = runCatching { JSONArray(raw) }.getOrElse {
+                                error("Wan tamamlandı yanıtı çözümlenemedi: ${raw.take(500)}")
+                            }
+                            fun resolveVideoFile(value: Any?): String? {
+                                return when (value) {
+                                    is JSONObject -> {
+                                        val directUrl = value.optString("url").takeIf { it.startsWith("http") && it != "null" }
+                                        val path = value.optString("path").takeIf { it.isNotBlank() && it != "null" }
+                                        val nested = value.opt("video").takeIf { it is JSONObject || it is String }
+                                            ?: value.opt("file").takeIf { it is JSONObject || it is String }
+                                        directUrl ?: path?.let { "$base/gradio_api/file=$it" } ?: resolveVideoFile(nested)
+                                    }
+                                    is String -> when {
+                                        value.startsWith("http") -> value
+                                        value.startsWith("/") -> "$base/gradio_api/file=$value"
+                                        else -> null
+                                    }
+                                    else -> null
+                                }
+                            }
+                            for (i in 0 until arr.length()) {
+                                resultUrl = resolveVideoFile(arr.opt(i))
+                                if (resultUrl != null) break
+                            }
                             if (resultUrl != null) break
                          } else if (eventName == "error") {
                             val detail = raw.takeIf { it.isNotBlank() && it != "null" && it != "[]" && it != "undefined" }
