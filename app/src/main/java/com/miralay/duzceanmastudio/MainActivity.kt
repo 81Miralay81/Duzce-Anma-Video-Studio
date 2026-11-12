@@ -58,6 +58,21 @@ class MainActivity : Activity() {
     private var exporting = false
     private var cancelRequested = false
     private val prefs by lazy { getSharedPreferences("project", MODE_PRIVATE) }
+    private var updateDownloadId: Long = -1L
+    private var pendingUpdateUri: Uri? = null
+    private var updateReceiverRegistered = false
+    private val updateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            if (intent?.action != android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+            val completedId = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+            if (completedId == updateDownloadId) {
+                val manager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                val uri = manager.getUriForDownloadedFile(completedId)
+                if (uri != null) installDownloadedUpdate(uri)
+                else status.text = "Güncelleme dosyası indirilemedi. Bağlantıyı kontrol edip tekrar dene."
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -328,6 +343,132 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = 0
     }
 
+
+
+    private fun checkForUpdates() {
+        status.text = "Yeni sürüm kontrol ediliyor…"
+        Thread {
+            val result = runCatching {
+                val connection = URL("https://api.github.com/repos/81Miralay81/Duzce-Anma-Video-Studio/releases/latest").openConnection() as HttpURLConnection
+                connection.connectTimeout = 20000
+                connection.readTimeout = 20000
+                connection.setRequestProperty("Accept", "application/vnd.github+json")
+                connection.setRequestProperty("User-Agent", "Kanatix-Video-Olusturucu")
+                val code = connection.responseCode
+                val body = (if (code in 200..299) connection.inputStream else connection.errorStream).bufferedReader().use { it.readText() }
+                connection.disconnect()
+                if (code !in 200..299) error("Sürüm sunucusu HTTP $code yanıtı verdi.")
+                val release = JSONObject(body)
+                val tag = release.optString("tag_name").takeIf { it.isNotBlank() && it != "null" }
+                    ?: error("Yayınlanan sürüm numarası bulunamadı.")
+                val assets = release.optJSONArray("assets") ?: JSONArray()
+                var apkUrl: String? = null
+                var apkName = ""
+                for (i in 0 until assets.length()) {
+                    val asset = assets.optJSONObject(i) ?: continue
+                    val name = asset.optString("name")
+                    if (name.endsWith(".apk", true)) {
+                        apkName = name
+                        apkUrl = asset.optString("browser_download_url").takeIf { it.startsWith("https://") }
+                        if (apkUrl != null) break
+                    }
+                }
+                val url = apkUrl ?: error("Son sürümün APK dosyası yayımlanmamış.")
+                val remoteVersion = tag.removePrefix("v")
+                val localVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                Triple(remoteVersion, localVersion, Pair(url, apkName))
+            }
+            runOnUiThread {
+                result.onSuccess { (remote, local, asset) ->
+                    if (compareVersions(remote, local) <= 0) {
+                        status.text = "Uygulama güncel. Kurulu sürüm: $local"
+                        android.app.AlertDialog.Builder(this).setTitle("KANATIX güncel")
+                            .setMessage("Kurulu sürüm: $local\nEn son yayımlanan sürüm: $remote")
+                            .setPositiveButton("Tamam", null).show()
+                    } else {
+                        android.app.AlertDialog.Builder(this).setTitle("Yeni KANATIX sürümü")
+                            .setMessage("Kurulu sürüm: $local\nYeni sürüm: $remote\n\nAPK indirilecek. Android kurulum ekranında güncellemeyi onaylaman gerekecek.")
+                            .setNegativeButton("Şimdi değil", null)
+                            .setPositiveButton("İndir ve kur") { _, _ -> downloadUpdate(asset.first, asset.second, remote) }
+                            .show()
+                    }
+                }.onFailure {
+                    status.text = "Güncelleme kontrolü başarısız: ${it.message}"
+                    android.app.AlertDialog.Builder(this).setTitle("Güncelleme kontrol edilemedi")
+                        .setMessage(it.message ?: "Bilinmeyen bağlantı hatası")
+                        .setPositiveButton("Tamam", null).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun compareVersions(first: String, second: String): Int {
+        val a = first.split(".").map { it.toIntOrNull() ?: 0 }
+        val b = second.split(".").map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }
+            val y = b.getOrElse(i) { 0 }
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
+    }
+
+    private fun downloadUpdate(url: String, fileName: String, version: String) {
+        runCatching {
+            val request = android.app.DownloadManager.Request(Uri.parse(url))
+                .setTitle("KANATIX $version")
+                .setDescription("Uygulama güncellemesi indiriliyor")
+                .setMimeType("application/vnd.android.package-archive")
+                .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName)
+            val manager = getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+            updateDownloadId = manager.enqueue(request)
+            status.text = "KANATIX $version indiriliyor… Bildirim alanından ilerlemeyi görebilirsin."
+            Toast.makeText(this, "Güncelleme indiriliyor", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            status.text = "Güncelleme indirilemedi: ${it.message}"
+        }
+    }
+
+    private fun installDownloadedUpdate(uri: Uri) {
+        pendingUpdateUri = uri
+        if (!packageManager.canRequestPackageInstalls()) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("APK yükleme izni gerekli")
+                .setMessage("KANATIX güncellemesini kurabilmek için bu uygulamaya bilinmeyen uygulama yükleme izni vermelisin. Açılan ayarda izni etkinleştir.")
+                .setNegativeButton("Vazgeç", null)
+                .setPositiveButton("Ayarları aç") { _, _ ->
+                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                }.show()
+            return
+        }
+        launchUpdateInstaller()
+    }
+
+    private fun launchUpdateInstaller() {
+        val uri = pendingUpdateUri ?: return
+        pendingUpdateUri = null
+        val install = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { startActivity(install) }.onFailure {
+            status.text = "Android kurulum ekranı açılamadı: ${it.message}"
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingUpdateUri != null && packageManager.canRequestPackageInstalls()) launchUpdateInstaller()
+    }
+
+    override fun onDestroy() {
+        if (updateReceiverRegistered) {
+            runCatching { unregisterReceiver(updateReceiver) }
+            updateReceiverRegistered = false
+        }
+        super.onDestroy()
+    }
 
     private fun startAiAnimation() {
         if (photos.size != 5) {
