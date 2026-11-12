@@ -313,6 +313,11 @@ class MainActivity : Activity() {
         val foot = label("KANATIX  •  HAYAL ET. OLUŞTUR. PAYLAŞ.", 10f, 0xFF8B9CC5.toInt(), true)
         foot.gravity = Gravity.CENTER
         page.addView(foot)
+        val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "bilinmiyor"
+        gap(page, 10)
+        page.addView(label("KANATIX SÜRÜMÜ  $currentVersion", 11f, 0xFFB9C5E3.toInt(), true).apply { gravity = Gravity.CENTER })
+        gap(page, 8)
+        page.addView(button("⬇   GÜNCELLEMEYİ KONTROL ET", intArrayOf(0xFF167A8A.toInt(), 0xFF124E70.toInt())) { checkForUpdates() })
 
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -340,6 +345,14 @@ class MainActivity : Activity() {
         root.addView(nav, LinearLayout.LayoutParams(-1, -2))
         setContentView(root)
         restoreProject()
+        val updateFilter = android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(updateReceiver, updateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(updateReceiver, updateFilter)
+        }
+        updateReceiverRegistered = true
         window.decorView.systemUiVisibility = 0
     }
 
