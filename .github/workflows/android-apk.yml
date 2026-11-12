@@ -42,11 +42,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v0.5.${{ github.run_number }}"
-          gh release create "$TAG" app/build/outputs/apk/debug/app-debug.apk \
+          TAG="v0.6.${{ github.run_number }}"
+          APK_NAME="Kanatix-Video-Olusturucu-${TAG}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          gh release create "$TAG" "$APK_NAME" \
             --repo "${{ github.repository }}" \
             --title "Kanatix Video Oluşturucu ${TAG}" \
-            --notes "Android APK. ZIP arşivi değildir; doğrudan APK dosyasını indirin." \
+            --notes "KANATIX Android APK sürümü ${TAG}. ZIP arşivi değildir; doğrudan APK dosyasını indirin." \
             --latest
       - uses: actions/upload-artifact@v4
         with:
