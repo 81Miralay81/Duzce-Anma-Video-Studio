@@ -336,7 +336,7 @@ class SceneStudioActivity : Activity() {
         require(endpoint.startsWith("https://") && token.isNotBlank()) {
             "Ücretsiz Colab bağlantısı eksik. Colab adresini ve erişim anahtarını ayarlardan kaydet."
         }
-        val boundary = "----KanatixColab\${System.currentTimeMillis()}"
+        val boundary = "----KanatixColab${System.currentTimeMillis()}"
         val connection = (URL("$endpoint/generate").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 60000
@@ -361,9 +361,9 @@ class SceneStudioActivity : Activity() {
         if (code !in 200..299) {
             val detail = runCatching { connection.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
             connection.disconnect()
-            error("Ücretsiz Colab üretim hatası (HTTP $code): \${detail?.take(1000) ?: "Sunucu ayrıntı vermedi."}")
+            error("Ücretsiz Colab üretim hatası (HTTP $code): ${detail?.take(1000) ?: "Sunucu ayrıntı vermedi."}")
         }
-        val file = File(outputDir, "Kanatix-scene-\${(index + 1).toString().padStart(2, '0')}.mp4")
+        val file = File(outputDir, "Kanatix-scene-${(index + 1).toString().padStart(2, '0')}.mp4")
         connection.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
         connection.disconnect()
         validateMotionMp4(file)
