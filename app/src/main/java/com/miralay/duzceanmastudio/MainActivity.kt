@@ -399,8 +399,12 @@ class MainActivity : Activity() {
                             .setMessage("Kurulu sürüm: $local\nEn son yayımlanan sürüm: $remote")
                             .setPositiveButton("Tamam", null).show()
                     } else {
+                        val signingNote = if (BuildConfig.KANATIX_STABLE_SIGNING)
+                            "Bu sürüm kalıcı KANATIX imzasıyla imzalanmış; uyumlu eski sürümün üzerine kurulabilir."
+                        else
+                            "Bu derlemede kalıcı imza henüz etkin değil. Eski APK farklı imzalıysa Android üzerine kurulumu reddeder; bu durumda eski uygulamayı kaldırıp yenisini kurman gerekir. Kalıcı imza için GitHub deposuna KANATIX_KEYSTORE_BASE64 ve KANATIX_SIGNING_PASSWORD sırları eklenmeli."
                         android.app.AlertDialog.Builder(this).setTitle("Yeni KANATIX sürümü")
-                            .setMessage("Kurulu sürüm: $local\nYeni sürüm: $remote\n\nAPK indirilecek. Android kurulum ekranında güncellemeyi onaylaman gerekecek.")
+                            .setMessage("Kurulu sürüm: $local\nYeni sürüm: $remote\n\n$signingNote\n\nAPK indirilecek. Android kurulum ekranında güncellemeyi onaylaman gerekecek.")
                             .setNegativeButton("Şimdi değil", null)
                             .setPositiveButton("İndir ve kur") { _, _ -> downloadUpdate(asset.first, asset.second, remote) }
                             .show()
