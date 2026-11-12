@@ -285,7 +285,7 @@ class SceneStudioActivity : Activity() {
             put(6)
             put("UniPCMultistep")
             put(3.0)
-            put(16)
+            put(24)
             put(true)
             put(true)
         }
