@@ -88,6 +88,16 @@ class SceneStudioActivity : Activity() {
             textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22)
         }
         root.addView(status)
+        val colabSettingsButton = Button(this).apply {
+            text = if (colabBaseUrl().isNotBlank()) "☁ COLAB BAĞLANTISI · AYARLANDI" else "☁ ÜCRETSİZ COLAB BAĞLANTISINI AYARLA"
+            isAllCaps = false
+            setOnClickListener {
+                showColabSettings {
+                    text = if (colabBaseUrl().isNotBlank()) "☁ COLAB BAĞLANTISI · AYARLANDI" else "☁ ÜCRETSİZ COLAB BAĞLANTISINI AYARLA"
+                }
+            }
+        }
+        root.addView(colabSettingsButton, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         errorDetails = TextView(this).apply {
             textSize = 12f
             setTextColor(0xFFFFD6D6.toInt())
@@ -128,7 +138,12 @@ class SceneStudioActivity : Activity() {
                     status.text = "Önce galeriden en az 1 fotoğraf seçmelisin."
                 } else {
                     scenesPerPhoto = sceneCountPicker.value
-                    runBatch(photos, scenesPerPhoto)
+                    if (colabBaseUrl().isBlank() || colabToken().isBlank()) {
+                        status.text = "Ücretsiz Colab bağlantısı ayarlanmamış. Önce Colab notebook'unu başlatıp adres ve erişim anahtarını kaydet."
+                        showColabSettings { }
+                    } else {
+                        runBatch(photos, scenesPerPhoto)
+                    }
                 }
             }
         }
@@ -267,7 +282,95 @@ class SceneStudioActivity : Activity() {
         return target
     }
 
+    private fun colabBaseUrl(): String =
+        getSharedPreferences("kanatix_colab", MODE_PRIVATE).getString("base_url", "")?.trim()?.trimEnd('/') ?: ""
+
+    private fun colabToken(): String =
+        getSharedPreferences("kanatix_colab", MODE_PRIVATE).getString("access_token", "")?.trim() ?: ""
+
+    private fun showColabSettings(onSaved: () -> Unit) {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(36, 12, 36, 0)
+        }
+        panel.addView(TextView(this).apply {
+            text = "Colab notebook'unun son hücresinde verilen API adresini ve erişim anahtarını gir. Colab oturumu açık kaldığı sürece bağlantı çalışır."
+            textSize = 14f
+        })
+        val urlField = EditText(this).apply {
+            hint = "https://....trycloudflare.com"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setText(colabBaseUrl())
+        }
+        val tokenField = EditText(this).apply {
+            hint = "Colab erişim anahtarı"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(colabToken())
+        }
+        panel.addView(urlField)
+        panel.addView(tokenField)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Ücretsiz Google Colab")
+            .setView(panel)
+            .setPositiveButton("KAYDET") { _, _ ->
+                getSharedPreferences("kanatix_colab", MODE_PRIVATE).edit()
+                    .putString("base_url", urlField.text.toString().trim().trimEnd('/'))
+                    .putString("access_token", tokenField.text.toString().trim())
+                    .apply()
+                onSaved()
+                Toast.makeText(this, "Colab bağlantı bilgileri kaydedildi.", Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton("BAĞLANTIYI SİL") { _, _ ->
+                getSharedPreferences("kanatix_colab", MODE_PRIVATE).edit().clear().apply()
+                onSaved()
+            }
+            .setNegativeButton("KAPAT", null)
+            .show()
+    }
+
     private fun generateClip(image: File, prompt: String, index: Int): File {
+        val endpoint = colabBaseUrl()
+        val token = colabToken()
+        require(endpoint.startsWith("https://") && token.isNotBlank()) {
+            "Ücretsiz Colab bağlantısı eksik. Colab adresini ve erişim anahtarını ayarlardan kaydet."
+        }
+        val boundary = "----KanatixColab\${System.currentTimeMillis()}"
+        val connection = (URL("$endpoint/generate").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 60000
+            readTimeout = 1800000
+            doOutput = true
+            setRequestProperty("X-Kanatix-Token", token)
+            setRequestProperty("Accept", "video/mp4")
+            setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+        }
+        connection.outputStream.use { out ->
+            fun field(name: String, value: String) {
+                out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n".toByteArray(Charsets.UTF_8))
+            }
+            out.write("--$boundary\r\nContent-Disposition: form-data; name=\"image\"; filename=\"kanatix-scene-$index.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray(Charsets.UTF_8))
+            FileInputStream(image).use { it.copyTo(out) }
+            out.write("\r\n".toByteArray(Charsets.UTF_8))
+            field("prompt", prompt)
+            field("seed", (System.currentTimeMillis() % 2147483647L).toString())
+            out.write("--$boundary--\r\n".toByteArray(Charsets.UTF_8))
+        }
+        val code = connection.responseCode
+        if (code !in 200..299) {
+            val detail = runCatching { connection.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            connection.disconnect()
+            error("Ücretsiz Colab üretim hatası (HTTP $code): \${detail?.take(1000) ?: "Sunucu ayrıntı vermedi."}")
+        }
+        val file = File(outputDir, "Kanatix-scene-\${(index + 1).toString().padStart(2, '0')}.mp4")
+        connection.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
+        connection.disconnect()
+        validateMotionMp4(file)
+        return file
+    }
+
+    private fun generateClipFromHuggingFace(image: File, prompt: String, index: Int): File {
         val uploaded = upload(image)
         val fileData = JSONObject().apply {
             put("path", uploaded); put("url", "$base/gradio_api/file=$uploaded")
