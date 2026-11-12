@@ -361,7 +361,8 @@ class SceneStudioActivity : Activity() {
         if (code !in 200..299) {
             val detail = runCatching { connection.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
             connection.disconnect()
-            error("Ücretsiz Colab üretim hatası (HTTP $code): ${detail?.take(1000) ?: "Sunucu ayrıntı vermedi."}")
+            val safeDetail = detail?.take(1000) ?: "Sunucu ayrıntı vermedi."
+            error("Ücretsiz Colab üretim hatası (HTTP $code): $safeDetail")
         }
         val file = File(outputDir, "Kanatix-scene-${(index + 1).toString().padStart(2, '0')}.mp4")
         connection.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
