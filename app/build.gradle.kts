@@ -9,8 +9,9 @@ android {
         applicationId = "com.miralay.duzceanmastudio"
         minSdk = 29
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"
+        val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionCode = 600000 + buildNumber
+        versionName = "0.6.$buildNumber"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
