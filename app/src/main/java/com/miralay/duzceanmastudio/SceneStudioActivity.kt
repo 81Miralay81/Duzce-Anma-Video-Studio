@@ -62,8 +62,12 @@ class SceneStudioActivity : Activity() {
             wrapSelectorWheel = false
             setOnValueChangedListener { _, _, newValue ->
                 scenesPerPhoto = newValue
-                status.text = "SEÇİLEN FOTOĞRAF: $selectedPhotoCount\nHer fotoğraftan $scenesPerPhoto devam sahnesi · Toplam ${selectedPhotoCount * scenesPerPhoto} klip"
-                progress.max = (selectedPhotoCount * scenesPerPhoto).coerceAtLeast(1)
+                if (::status.isInitialized) {
+                    status.text = "SEÇİLEN FOTOĞRAF: $selectedPhotoCount\nHer fotoğraftan $scenesPerPhoto devam sahnesi · Toplam ${selectedPhotoCount * scenesPerPhoto} klip"
+                }
+                if (::progress.isInitialized) {
+                    progress.max = (selectedPhotoCount * scenesPerPhoto).coerceAtLeast(1)
+                }
             }
         }
         root.addView(sceneCountPicker, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -168,7 +172,9 @@ class SceneStudioActivity : Activity() {
                 result.onSuccess {
                     status.text = "${photos.size * sceneCount} doğrulanmış kısa klip üretildi (${photos.size} fotoğraf × $sceneCount devam sahnesi). Henüz birleştirilmiş film ve sahne sesleri eklenmedi. Klip klasörü: ${it.absolutePath}"
                     Toast.makeText(this, "${photos.size * sceneCount} sahne üretimi tamamlandı", Toast.LENGTH_LONG).show()
-                }.onFailure { status.text = "Üretim durdu: ${it.message}. Tamamlanan klip sayısı: ${clips.size}/15" }
+                }.onFailure {
+                    status.text = "Üretim durdu: ${it.message ?: it.javaClass.simpleName}. Tamamlanan klip sayısı: ${clips.size}/${photos.size * sceneCount}"
+                }
             }
         }.start()
     }
