@@ -184,8 +184,8 @@ class SceneStudioActivity : Activity() {
             put(6)
             put("UniPCMultistep")
             put(3.0)
-            put(24)
-            put(false)
+            put(16)
+            put(true)
             put(true)
         }
         val request = (URL("$base/gradio_api/call/generate_video").openConnection() as HttpURLConnection).apply {
@@ -201,7 +201,7 @@ class SceneStudioActivity : Activity() {
             ?: error("Wan sunucusu görev numarası döndürmedi. Yanıt: ${body.take(500)}")
         runOnUiThread { status.text = "Wan 2.2 klip ${index + 1}/15 üretiyor…" }
         val stream = (URL("$base/gradio_api/call/generate_video/$event").openConnection() as HttpURLConnection).apply {
-            connectTimeout = 30000; readTimeout = 300000; setRequestProperty("Accept", "text/event-stream")
+            connectTimeout = 30000; readTimeout = 900000; setRequestProperty("Accept", "text/event-stream")
         }
         val streamCode = stream.responseCode
         if (streamCode !in 200..299) {
