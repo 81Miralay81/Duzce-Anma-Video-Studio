@@ -9,10 +9,14 @@ import android.graphics.Bitmap
 import android.widget.*
 import android.view.ViewGroup
 import android.content.res.ColorStateList
+import android.content.ClipboardManager
+import android.content.ClipData
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -27,6 +31,9 @@ class SceneStudioActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var start: Button
     private lateinit var sceneCountPicker: NumberPicker
+    private lateinit var errorDetails: TextView
+    private lateinit var copyErrorButton: Button
+    private var lastErrorReport = ""
     private var scenesPerPhoto = 4
     private var selectedPhotoCount = 0
     private val clips = mutableListOf<File>()
@@ -80,6 +87,25 @@ class SceneStudioActivity : Activity() {
             textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22)
         }
         root.addView(status)
+        errorDetails = TextView(this).apply {
+            textSize = 12f
+            setTextColor(0xFFFFD6D6.toInt())
+            setPadding(12, 12, 12, 12)
+            setBackgroundColor(0xFF321820.toInt())
+            visibility = android.view.View.GONE
+        }
+        root.addView(errorDetails, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+        copyErrorButton = Button(this).apply {
+            text = "HATA RAPORUNU KOPYALA"
+            isAllCaps = false
+            visibility = android.view.View.GONE
+            setOnClickListener {
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("KANATIX hata raporu", lastErrorReport))
+                Toast.makeText(this@SceneStudioActivity, "Hata raporu kopyalandı. Buraya yapıştırabilirsin.", Toast.LENGTH_LONG).show()
+            }
+        }
+        root.addView(copyErrorButton, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             weightSum = 2f
@@ -172,8 +198,28 @@ class SceneStudioActivity : Activity() {
                 result.onSuccess {
                     status.text = "${photos.size * sceneCount} doğrulanmış kısa klip üretildi (${photos.size} fotoğraf × $sceneCount devam sahnesi). Henüz birleştirilmiş film ve sahne sesleri eklenmedi. Klip klasörü: ${it.absolutePath}"
                     Toast.makeText(this, "${photos.size * sceneCount} sahne üretimi tamamlandı", Toast.LENGTH_LONG).show()
-                }.onFailure {
-                    status.text = "Üretim durdu: ${it.message ?: it.javaClass.simpleName}. Tamamlanan klip sayısı: ${clips.size}/${photos.size * sceneCount}"
+                }.onFailure { error ->
+                    val trace = StringWriter()
+                    error.printStackTrace(PrintWriter(trace))
+                    val report = buildString {
+                        appendLine("KANATIX ÜRETİM HATA RAPORU")
+                        appendLine("Tarih: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
+                        appendLine("Fotoğraf sayısı: ${photos.size}")
+                        appendLine("Fotoğraf başına sahne: $sceneCount")
+                        appendLine("Toplam hedef klip: ${photos.size * sceneCount}")
+                        appendLine("Tamamlanan klip: ${clips.size}")
+                        appendLine("Çıktı klasörü: ${runCatching { outputDir.absolutePath }.getOrDefault("oluşturulamadı")}")
+                        appendLine("Hata sınıfı: ${error.javaClass.name}")
+                        appendLine("Hata mesajı: ${error.message ?: "(mesaj yok)"}")
+                        appendLine()
+                        appendLine("AYRINTILI STACK TRACE:")
+                        append(trace.toString())
+                    }
+                    lastErrorReport = report
+                    errorDetails.text = report
+                    errorDetails.visibility = android.view.View.VISIBLE
+                    copyErrorButton.visibility = android.view.View.VISIBLE
+                    status.text = "ÜRETİM DURDU · ${error.message ?: error.javaClass.simpleName}\nTamamlanan: ${clips.size}/${photos.size * sceneCount}\nAyrıntılı hata aşağıda. Kopyala butonuna basıp raporu sohbete gönder."
                 }
             }
         }.start()
