@@ -204,6 +204,9 @@ class SceneStudioActivity : Activity() {
                     error.printStackTrace(PrintWriter(trace))
                     val report = buildString {
                         appendLine("KANATIX ÜRETİM HATA RAPORU")
+                        val installedPackage = packageManager.getPackageInfo(packageName, 0)
+                        appendLine("APK sürümü: ${installedPackage.versionName ?: "bilinmiyor"}")
+                        appendLine("APK build numarası (versionCode): ${installedPackage.longVersionCode}")
                         appendLine("Tarih: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
                         appendLine("Fotoğraf sayısı: ${photos.size}")
                         appendLine("Fotoğraf başına sahne: $sceneCount")
