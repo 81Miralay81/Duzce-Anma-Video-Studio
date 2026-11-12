@@ -17,16 +17,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Batch scene producer: 5 source photographs x 3 linked 4-second Wan clips.
- * It never reports a clip as complete until an MP4 container and changing frames are verified.
- * Final assembly and per-scene narration are separate pipeline stages; this screen deliberately
- * does not label the batch as a finished film.
+ * Batch scene producer: any number of source photographs x user-selected linked Wan clips.
+ * Each photograph starts a new sequence; every following clip continues from the previous clip's
+ * final frame. Clips are verified before being counted as complete.
  */
 class SceneStudioActivity : Activity() {
     private val base = "https://cbensimon-wan2-2-fp8da-aoti-preview2.hf.space"
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var start: Button
+    private lateinit var sceneCountPicker: NumberPicker
+    private var scenesPerPhoto = 4
+    private var selectedPhotoCount = 0
     private val clips = mutableListOf<File>()
     private lateinit var outputDir: File
     @Volatile private var cancelled = false
@@ -44,13 +46,35 @@ class SceneStudioActivity : Activity() {
             text = "KANATIX · ÇOKLU SAHNE STÜDYOSU"
             textSize = 20f; setTextColor(0xFFFFC45D.toInt())
         })
+        selectedPhotoCount = photos.size
         root.addView(TextView(this).apply {
-            text = "5 fotoğraf × 3 devamlı klip = 15 kısa sahne\nHer klip ayrı ayrı doğrulanır. Ücretsiz sunucu sırası nedeniyle işlem uzun sürebilir."
-            textSize = 14f; setTextColor(0xFFE5EAF8.toInt()); setPadding(0,18,0,18)
+            text = "Eklediğin her fotoğraf ayrı bir hikâye dizisi olur. Her fotoğraf için kaç devam sahnesi üretileceğini aşağıdan seç."
+            textSize = 14f; setTextColor(0xFFE5EAF8.toInt()); setPadding(0,18,0,10)
         })
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 15; progress = 0 }
+        root.addView(TextView(this).apply {
+            text = "HER FOTOĞRAF İÇİN DEVAM SAHNESİ"
+            textSize = 14f; setTextColor(0xFFFFC45D.toInt())
+        })
+        sceneCountPicker = NumberPicker(this).apply {
+            minValue = 1
+            maxValue = 10
+            value = 4
+            wrapSelectorWheel = false
+            setOnValueChangedListener { _, _, newValue ->
+                scenesPerPhoto = newValue
+                status.text = "SEÇİLEN FOTOĞRAF: $selectedPhotoCount\nHer fotoğraftan $scenesPerPhoto devam sahnesi · Toplam ${selectedPhotoCount * scenesPerPhoto} klip"
+                progress.max = (selectedPhotoCount * scenesPerPhoto).coerceAtLeast(1)
+            }
+        }
+        root.addView(sceneCountPicker, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = (photos.size * scenesPerPhoto).coerceAtLeast(1); progress = 0
+        }
         root.addView(progress, LinearLayout.LayoutParams(-1, 12))
-        status = TextView(this).apply { text = "SEÇİLEN FOTOĞRAF: ${photos.size}/5\n\nÜretimi başlatmak için BAŞLAT düğmesine dokun."; textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22) }
+        status = TextView(this).apply {
+            text = "SEÇİLEN FOTOĞRAF: ${photos.size}\nHer fotoğraftan $scenesPerPhoto devam sahnesi · Toplam ${photos.size * scenesPerPhoto} klip\n\nÜretimi başlatmak için BAŞLAT düğmesine dokun."
+            textSize = 16f; setTextColor(0xFFFFFFFF.toInt()); setPadding(0,22,0,22)
+        }
         root.addView(status)
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -69,9 +93,12 @@ class SceneStudioActivity : Activity() {
             stateListAnimator = null
             setPadding(8, 8, 8, 8)
             setOnClickListener {
-                if (photos.size != 5) {
-                    status.text = "Bu üretim akışı için tam 5 fotoğraf seçmelisin. Şu an: ${photos.size}"
-                } else runBatch(photos)
+                if (photos.isEmpty()) {
+                    status.text = "Önce galeriden en az 1 fotoğraf seçmelisin."
+                } else {
+                    scenesPerPhoto = sceneCountPicker.value
+                    runBatch(photos, scenesPerPhoto)
+                }
             }
         }
         actionRow.addView(start, LinearLayout.LayoutParams(0, 76, 1f).apply {
@@ -103,7 +130,7 @@ class SceneStudioActivity : Activity() {
         setContentView(ScrollView(this).apply { addView(root) })
     }
 
-    private fun runBatch(photos: ArrayList<String>) {
+    private fun runBatch(photos: ArrayList<String>, sceneCount: Int) {
         start.isEnabled = false
         cancelled = false
         clips.clear()
@@ -111,23 +138,26 @@ class SceneStudioActivity : Activity() {
             val result = runCatching {
                 val dir = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "Kanatix-Scene-Project-${System.currentTimeMillis()}").apply { mkdirs() }
                 outputDir = dir
-                for (photoIndex in 0 until 5) {
+                val totalClips = photos.size * sceneCount
+                for (photoIndex in photos.indices) {
                     var continuityImage = copyUriToFile(Uri.parse(photos[photoIndex]), File(cacheDir, "scene-source-$photoIndex.jpg"))
-                    for (part in 0 until 3) {
+                    for (part in 0 until sceneCount) {
                         if (cancelled) error("Kullanıcı işlemi iptal etti.")
-                        val clipIndex = photoIndex * 3 + part
-                        val scenePrompt = when (part) {
-                            0 -> "$basePrompt Continue the exact photographed moment. Establish the scene with restrained, physically plausible environmental and human motion. Do not resolve the event yet."
-                            1 -> "$basePrompt Continue naturally from the preceding clip's final frame. Preserve the same people, positions, clothing, damage and lighting. Advance the same action by one small, physically plausible step; no sudden changes."
-                            else -> "$basePrompt Continue directly from the preceding clip's final frame. Preserve visual continuity and complete only the next believable beat of the same action; no abrupt rescue, teleportation, dragging or impossible body movement."
+                        val clipIndex = photoIndex * sceneCount + part
+                        val scenePrompt = when {
+                            part == 0 -> "$basePrompt Recreate the exact photographed moment as the opening of a continuous sequence. Establish the scene with restrained, physically plausible human and environmental motion. This is scene 1 of $sceneCount for this photograph. Do not jump ahead or resolve the event."
+                            part == sceneCount - 1 -> "$basePrompt Continue directly from the preceding clip's final frame. This is the final scene ($sceneCount of $sceneCount) in this photograph's sequence. Preserve the same people, clothing, positions, setting, damage and lighting. Advance the same action by one believable step and give this sequence a natural visual pause, without inventing a new event."
+                            else -> "$basePrompt Continue directly from the preceding clip's final frame. This is scene ${part + 1} of $sceneCount in one continuous sequence. Preserve the same people, clothing, positions, setting, damage and lighting. Advance the same action by one small, physically plausible step. Do not restart the scene, change camera geography abruptly or introduce new people."
                         }
                         val output = generateClip(continuityImage, scenePrompt, clipIndex)
                         clips.add(output)
-                        continuityImage = extractLastFrame(output, File(cacheDir, "scene-continuity-$clipIndex.jpg"))
+                        if (part < sceneCount - 1) {
+                            continuityImage = extractLastFrame(output, File(cacheDir, "scene-continuity-$clipIndex.jpg"))
+                        }
                         val done = clipIndex + 1
                         runOnUiThread {
                             progress.progress = done
-                            status.text = "Fotoğraf ${photoIndex + 1}/5 · klip ${part + 1}/3 tamamlandı. Toplam: $done/15"
+                            status.text = "Fotoğraf ${photoIndex + 1}/${photos.size} · devam sahnesi ${part + 1}/$sceneCount tamamlandı. Toplam: $done/$totalClips"
                         }
                     }
                 }
@@ -136,8 +166,8 @@ class SceneStudioActivity : Activity() {
             runOnUiThread {
                 start.isEnabled = true
                 result.onSuccess {
-                    status.text = "15 doğrulanmış kısa klip üretildi. Henüz birleştirilmiş film ve sahne sesleri eklenmedi. Klip klasörü: ${it.absolutePath}"
-                    Toast.makeText(this, "15 sahne üretimi tamamlandı", Toast.LENGTH_LONG).show()
+                    status.text = "${photos.size * sceneCount} doğrulanmış kısa klip üretildi (${photos.size} fotoğraf × $sceneCount devam sahnesi). Henüz birleştirilmiş film ve sahne sesleri eklenmedi. Klip klasörü: ${it.absolutePath}"
+                    Toast.makeText(this, "${photos.size * sceneCount} sahne üretimi tamamlandı", Toast.LENGTH_LONG).show()
                 }.onFailure { status.text = "Üretim durdu: ${it.message}. Tamamlanan klip sayısı: ${clips.size}/15" }
             }
         }.start()
@@ -199,7 +229,7 @@ class SceneStudioActivity : Activity() {
         if (code !in 200..299) error("Wan işi kabul etmedi ($code): $body")
         val event = JSONObject(body).optString("event_id").takeIf { it.isNotBlank() && it != "null" }
             ?: error("Wan sunucusu görev numarası döndürmedi. Yanıt: ${body.take(500)}")
-        runOnUiThread { status.text = "Wan 2.2 klip ${index + 1}/15 üretiyor…" }
+        runOnUiThread { status.text = "Wan 2.2 klip ${index + 1}/${selectedPhotoCount * scenesPerPhoto} üretiyor…" }
         val stream = (URL("$base/gradio_api/call/generate_video/$event").openConnection() as HttpURLConnection).apply {
             connectTimeout = 30000; readTimeout = 900000; setRequestProperty("Accept", "text/event-stream")
         }
