@@ -515,15 +515,16 @@ class MainActivity : Activity() {
     }
 
     private fun startAiAnimation() {
-        if (photos.size != 5) {
-            status.text = "Çoklu sahne stüdyosu için tam 5 fotoğraf seçmelisin. Şu an: ${photos.size}"
+        if (photos.isEmpty()) {
+            status.text = "Önce galeriden en az 1 fotoğraf seçmelisin."
             return
         }
+        val photoCount = photos.size
         val confirm = android.app.AlertDialog.Builder(this)
-            .setTitle("15 sahneli film üretimi")
-            .setMessage("5 fotoğrafın her biri için 3 devamlı, yaklaşık 4 saniyelik Wan 2.2 klibi üretilecek. Toplam 15 klip. Ücretsiz sunucu sırası nedeniyle işlem uzun sürebilir. Fotoğraflar herkese açık model sunucusuna gönderilir.")
+            .setTitle("Yapay zekâ çoklu sahne stüdyosu")
+            .setMessage("$photoCount fotoğraf seçtin. Bir sonraki ekranda her fotoğraf için kaç devam sahnesi üretileceğini sen belirleyeceksin. Toplam klip sayısı seçimine göre hesaplanacak. Ücretsiz Wan sunucusunda işlem uzun sürebilir. Fotoğraflar herkese açık model sunucusuna gönderilir.")
             .setNegativeButton("Vazgeç", null)
-            .setPositiveButton("Devam et") { _, _ ->
+            .setPositiveButton("Sahne sayısını seç") { _, _ ->
                 val intent = Intent(this, SceneStudioActivity::class.java)
                 intent.putStringArrayListExtra("photos", ArrayList(photos.map { it.toString() }))
                 startActivity(intent)
