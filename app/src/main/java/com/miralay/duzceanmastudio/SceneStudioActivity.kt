@@ -305,6 +305,9 @@ class SceneStudioActivity : Activity() {
             connectTimeout = 30000; readTimeout = 900000; setRequestProperty("Accept", "text/event-stream")
         }
         val streamCode = stream.responseCode
+        val serverRequestId = listOf("x-request-id", "x-amzn-trace-id", "cf-ray")
+            .mapNotNull { key -> stream.getHeaderField(key)?.takeIf { it.isNotBlank() }?.let { "$key=$it" } }
+            .joinToString("; ")
         if (streamCode !in 200..299) {
             val detail = runCatching { stream.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()
             stream.disconnect()
@@ -317,7 +320,7 @@ class SceneStudioActivity : Activity() {
                 when {
                     line.startsWith("event:") -> eventName = line.substringAfter(":").trim()
                     line.startsWith("data:") -> data.add(line.substringAfter(":").trim())
-                    line.isBlank() && data.isNotEmpty() -> {
+                    line.isBlank() && (data.isNotEmpty() || eventName.isNotBlank()) -> {
                         val raw = data.joinToString("\n")
                         if (eventName == "complete") {
                             val arr = runCatching { JSONArray(raw) }.getOrElse {
@@ -347,8 +350,12 @@ class SceneStudioActivity : Activity() {
                             if (resultUrl != null) break
                          } else if (eventName == "error") {
                             val detail = raw.takeIf { it.isNotBlank() && it != "null" && it != "[]" && it != "undefined" }
-                            error(if (detail != null) "Wan 2.2 hata verdi: ${detail.take(700)}"
-                                else "Wan 2.2 sunucusu ayrıntısız hata döndürdü (null). Ücretsiz GPU alanı meşgul, uyuyor veya isteği işleyememiş olabilir. Bir süre sonra yeniden dene.")
+                            error(
+                                "Wan 2.2 SSE event:error. HTTP=${streamCode}; event_id=$event; " +
+                                "payload=${detail?.take(700) ?: "<boş/null>"}; " +
+                                "server_headers=${serverRequestId.ifBlank { "yok" }}. " +
+                                "Bu yanıt tek başına GPU yoğunluğu veya model hatası olduğunu kanıtlamaz."
+                            )
                         }
                         eventName = ""; data.clear()
                     }
